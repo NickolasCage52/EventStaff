@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --emerald: #1D4E3F;
+    --mocha: #6B4F3A;
+    --stone: #F5F3EF;
+    --ink: #1C1C1C;
+    --mist: #E8E5E0;
+    --radius-card: 16px;
+    --radius-btn: 10px;
+    --radius-badge: 100px;
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+    --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.1), 0 8px 32px rgba(0, 0, 0, 0.06);
+    --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --font-display: "Cormorant Garamond", serif;
+    --font-body: "DM Sans", sans-serif;
+  }
+  body {
+    @apply bg-stone text-ink antialiased;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.4s ease-out;
+}
