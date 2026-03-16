@@ -1,20 +1,20 @@
 import Link from "next/link";
 import { Play, Users, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { BASE_PATH } from "@/lib/constants";
 
 export function HeroSection() {
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-      {/* Background with gradient overlay */}
+      {/* Background — локальный SVG для надёжной работы на GitHub Pages */}
       <div
-        className="absolute inset-0 bg-gradient-to-b from-ink/90 via-ink/70 to-emerald-dark/80"
+        className="absolute inset-0"
         style={{
-          backgroundImage: `url(https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1920&q=80)`,
+          backgroundImage: `url(${BASE_PATH}/hero-bg.svg)`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-ink/90 via-ink/70 to-emerald-dark/80" />
 
       <div className="relative z-10 mx-auto max-w-7xl w-full px-6 md:px-12 py-20">
         <div className="flex flex-col md:flex-row items-center gap-16">
