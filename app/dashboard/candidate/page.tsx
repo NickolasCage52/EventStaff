@@ -20,14 +20,15 @@ import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ToastProvider, useToast } from "@/components/providers/ToastProvider";
+import { cn } from "@/lib/utils";
 
 type Tab = "profile" | "responses" | "views" | "settings";
 
 const navItems = [
-  { id: "profile" as Tab, label: "Профиль", icon: User },
-  { id: "responses" as Tab, label: "Мои отклики", icon: FileCheck },
-  { id: "views" as Tab, label: "Просмотры", icon: Eye },
-  { id: "settings" as Tab, label: "Настройки", icon: Settings },
+  { id: "profile" as Tab, label: "Профиль", icon: User, shortLabel: "Профиль" },
+  { id: "responses" as Tab, label: "Мои отклики", icon: FileCheck, shortLabel: "Отклики" },
+  { id: "views" as Tab, label: "Просмотры", icon: Eye, shortLabel: "Просмотры" },
+  { id: "settings" as Tab, label: "Настройки", icon: Settings, shortLabel: "Настройки" },
 ];
 
 const responseStatuses: Record<
@@ -85,8 +86,9 @@ function CandidateDashboardContent() {
   };
 
   return (
-    <div className="flex gap-8">
-      <aside className="w-60 shrink-0 sticky top-24 self-start">
+    <div className="flex flex-col xl:flex-row gap-8 pb-20 xl:pb-0">
+      {/* Desktop sidebar */}
+      <aside className="hidden xl:block w-60 shrink-0 sticky top-24 self-start">
         <div className="flex flex-col items-center gap-4 mb-8">
           <Avatar name="Анна К." size="xl" />
           <div className="text-center">
@@ -99,11 +101,12 @@ function CandidateDashboardContent() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              className={cn(
+                "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors min-h-[44px]",
                 activeTab === tab.id
                   ? "bg-emerald text-white"
                   : "text-ink/70 hover:bg-mist hover:text-ink"
-              }`}
+              )}
             >
               <tab.icon className="h-5 w-5" />
               {tab.label}
@@ -113,27 +116,46 @@ function CandidateDashboardContent() {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full mt-8 gap-2 text-red-600 hover:bg-red-500/10 hover:text-red-600"
+          className="w-full mt-8 gap-2 text-red-600 hover:bg-red-500/10 hover:text-red-600 min-h-[44px]"
         >
           <LogOut className="h-4 w-4" />
           Выйти
         </Button>
       </aside>
 
+      {/* Mobile bottom navigation */}
+      <nav className="xl:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-mist z-40 h-16 safe-area-pb">
+        <div className="flex h-full">
+          {navItems.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center gap-1 text-xs min-h-[44px]",
+                activeTab === tab.id ? "text-emerald" : "text-ink/40"
+              )}
+            >
+              <tab.icon size={20} />
+              <span>{tab.shortLabel}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
       <div className="flex-1 min-w-0">
         {activeTab === "profile" && (
           <div className="space-y-8">
-            <Card className="p-8">
+            <Card className="p-4 md:p-8">
               <CardContent className="p-0 space-y-8">
                 <div>
                   <h3 className="font-medium text-ink mb-4">Основное</h3>
-                  <div className="flex items-center gap-6 mb-6">
+                  <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-6">
                     <Avatar name="Анна К." size="xl" />
-                    <Button variant="secondary" size="sm">
+                    <Button variant="secondary" size="sm" className="min-h-[44px] w-full sm:w-auto">
                       Изменить фото
                     </Button>
                   </div>
-                  <div className="grid gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-ink mb-2">
                         Имя
@@ -170,7 +192,7 @@ function CandidateDashboardContent() {
 
                 <div>
                   <h3 className="font-medium text-ink mb-4">Опыт и уровень</h3>
-                  <div className="grid gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-ink mb-2">
                         Опыт работы (лет)
@@ -243,7 +265,7 @@ function CandidateDashboardContent() {
                         Drag & drop
                       </div>
                     ))}
-                    <button className="h-24 w-32 rounded-lg border-2 border-dashed border-mist flex items-center justify-center text-ink/60 hover:border-emerald hover:text-emerald transition-colors">
+                    <button className="h-24 w-32 min-h-[80px] rounded-lg border-2 border-dashed border-mist flex items-center justify-center text-ink/60 hover:border-emerald hover:text-emerald transition-colors min-w-[80px]">
                       <Plus className="h-6 w-6" />
                     </button>
                   </div>
@@ -252,7 +274,7 @@ function CandidateDashboardContent() {
                   </Button>
                 </div>
 
-                <Button variant="primary" size="lg" onClick={handleSave}>
+                <Button variant="primary" size="lg" onClick={handleSave} className="w-full md:w-auto min-h-[44px]">
                   Сохранить изменения
                 </Button>
               </CardContent>
@@ -263,7 +285,28 @@ function CandidateDashboardContent() {
         {activeTab === "responses" && (
           <Card className="p-0">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              {/* Mobile: cards */}
+              <div className="block md:hidden space-y-3 p-4">
+                {responses.map((r, i) => (
+                  <div key={i} className="bg-white rounded-xl p-4 shadow-[var(--shadow-card)] border border-mist">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink break-words">{r.vacancy}</p>
+                        <p className="text-sm text-ink/60">{r.employer}</p>
+                      </div>
+                      <Badge variant={responseStatuses[r.status]?.variant || "default"}>
+                        {r.status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-ink/40 mt-2">{r.date}</p>
+                    <Button variant="ghost" size="sm" className="mt-3 w-full min-h-[44px]">
+                      Смотреть
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              {/* Desktop: table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-mist">
@@ -373,9 +416,9 @@ function CandidateDashboardContent() {
 export default function CandidateDashboardPage() {
   return (
     <ToastProvider>
-      <div className="px-6 md:px-12 py-12">
+      <div className="px-4 sm:px-6 md:px-8 lg:px-12 py-8 md:py-12">
         <div className="mx-auto max-w-5xl">
-          <h1 className="font-display text-3xl font-medium text-ink mb-8">
+          <h1 className="font-display text-2xl md:text-3xl font-medium text-ink mb-6 md:mb-8">
             Личный кабинет соискателя
           </h1>
           <CandidateDashboardContent />

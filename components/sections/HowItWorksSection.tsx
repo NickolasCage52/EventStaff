@@ -8,6 +8,7 @@ import {
   Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Container } from "@/components/layout/Container";
 
 const employerSteps = [
   {
@@ -55,57 +56,65 @@ export function HowItWorksSection() {
   return (
     <section
       id="how-it-works"
-      className="border-t border-mist bg-white px-6 md:px-12 py-20"
+      className="border-t border-mist bg-white py-12 md:py-16 xl:py-20"
     >
-      <div className="mx-auto max-w-7xl">
-        <h2 className="font-display text-3xl font-medium text-ink mb-16">
+      <Container>
+        <h2 className="font-display text-2xl md:text-3xl xl:text-4xl font-medium text-ink mb-8 md:mb-16">
           Как это работает
         </h2>
-        <div className="grid grid-cols-2 gap-16">
-          <div className="pr-8 border-r border-mist">
-            <h3 className="font-display text-xl font-medium text-emerald mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-0 md:divide-x divide-mist">
+          <div className="md:pr-8">
+            <h3 className="font-display text-lg md:text-xl font-medium text-emerald mb-6 md:mb-8">
               Для работодателей
             </h3>
-            <div className="space-y-8">
+            <div className="space-y-6 md:space-y-8">
               {employerSteps.map((step) => (
                 <div key={step.num} className="flex gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald/10 text-emerald">
-                    <step.icon className="h-6 w-6" />
+                  <div className="flex h-10 w-10 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-xl bg-emerald/10 text-emerald">
+                    <step.icon className="h-5 w-5 md:h-6 md:w-6" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-ink mb-1">{step.title}</h4>
+                    <h4 className="font-medium text-ink mb-1 text-base md:text-lg">
+                      {step.title}
+                    </h4>
                     <p className="text-sm text-ink/70">{step.desc}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <Link href="/candidates" className="mt-8 inline-block">
-              <Button variant="primary">Найти персонал</Button>
+            <Link href="/candidates" className="mt-6 md:mt-8 inline-block">
+              <Button variant="primary" className="min-h-[44px] w-full md:w-auto">
+                Найти персонал
+              </Button>
             </Link>
           </div>
-          <div className="pl-8">
-            <h3 className="font-display text-xl font-medium text-mocha mb-8">
+          <div className="md:pl-8 pt-8 md:pt-0 border-t md:border-t-0 border-mist">
+            <h3 className="font-display text-lg md:text-xl font-medium text-mocha mb-6 md:mb-8">
               Для соискателей
             </h3>
-            <div className="space-y-8">
+            <div className="space-y-6 md:space-y-8">
               {candidateSteps.map((step) => (
                 <div key={step.num} className="flex gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-mocha/10 text-mocha">
-                    <step.icon className="h-6 w-6" />
+                  <div className="flex h-10 w-10 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-xl bg-mocha/10 text-mocha">
+                    <step.icon className="h-5 w-5 md:h-6 md:w-6" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-ink mb-1">{step.title}</h4>
+                    <h4 className="font-medium text-ink mb-1 text-base md:text-lg">
+                      {step.title}
+                    </h4>
                     <p className="text-sm text-ink/70">{step.desc}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <Link href="/onboarding" className="mt-8 inline-block">
-              <Button variant="mocha">Разместить анкету</Button>
+            <Link href="/onboarding" className="mt-6 md:mt-8 inline-block">
+              <Button variant="mocha" className="min-h-[44px] w-full md:w-auto">
+                Разместить анкету
+              </Button>
             </Link>
           </div>
         </div>
-      </div>
+      </Container>
     </section>
   );
 }

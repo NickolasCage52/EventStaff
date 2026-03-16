@@ -45,7 +45,7 @@ export function JobFilters({
           {ROLES.map((role) => (
             <label
               key={role}
-              className="flex items-center justify-between gap-2 cursor-pointer text-sm text-ink/80 hover:text-ink group"
+              className="flex items-center justify-between gap-2 cursor-pointer text-sm text-ink/80 hover:text-ink group min-h-[44px] py-2"
             >
               <span className="flex items-center gap-2">
                 <input
@@ -71,7 +71,7 @@ export function JobFilters({
           {experienceOptions.map((opt) => (
             <label
               key={opt.value}
-              className="flex items-center gap-2 cursor-pointer text-sm text-ink/80 hover:text-ink"
+              className="flex items-center gap-2 cursor-pointer text-sm text-ink/80 hover:text-ink min-h-[44px] py-2"
             >
               <input
                 type="radio"

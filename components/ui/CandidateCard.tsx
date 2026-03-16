@@ -20,12 +20,12 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
   return (
     <Card className="overflow-hidden group">
       <Link href={`/candidates/${candidate.id}`} className="block">
-        <div className="flex gap-4 p-6 transition-shadow duration-200 group-hover:shadow-[var(--shadow-card-hover)] cursor-pointer">
+        <div className="flex md:flex-col gap-4 p-4 md:p-6 transition-shadow duration-200 group-hover:shadow-[var(--shadow-card-hover)] group-active:scale-[0.98] cursor-pointer">
           <Avatar
             name={candidate.name}
             size="lg"
             verified={candidate.verified}
-            className="shrink-0"
+            className="shrink-0 w-16 h-16 md:w-20 md:h-20"
           />
           <div className="flex-1 min-w-0">
             <h3 className="font-display text-lg font-medium text-ink mb-0.5">
@@ -63,7 +63,7 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
                 e.preventDefault();
                 setIsFavorite(!isFavorite);
               }}
-              className="p-1.5 rounded-full hover:bg-mist transition-colors"
+              className="p-2 rounded-full hover:bg-mist transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               aria-label="В избранное"
             >
               <Heart

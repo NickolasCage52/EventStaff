@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { CheckCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function FeedbackPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -42,15 +43,15 @@ export default function FeedbackPage() {
 
   if (submitted) {
     return (
-      <div className="px-6 md:px-12 py-20">
+      <div className="px-4 sm:px-6 md:px-8 py-16 md:py-20">
         <div className="mx-auto max-w-xl text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald/10 text-emerald mb-8 animate-scale-in">
-            <CheckCircle className="h-12 w-12" strokeWidth={1.5} />
+          <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-emerald/10 text-emerald mb-6 md:mb-8 animate-scale-in">
+            <CheckCircle className="h-10 w-10 md:h-12 md:w-12" strokeWidth={1.5} />
           </div>
-          <h1 className="font-display text-3xl font-medium text-ink mb-4">
+          <h1 className="font-display text-2xl md:text-3xl font-medium text-ink mb-4">
             Спасибо!
           </h1>
-          <p className="text-ink/70 text-lg">
+          <p className="text-base md:text-lg text-ink/70">
             Мы свяжемся с вами в ближайшее время.
           </p>
         </div>
@@ -59,12 +60,12 @@ export default function FeedbackPage() {
   }
 
   return (
-    <div className="px-6 md:px-12 py-20">
-      <div className="mx-auto max-w-[560px]">
-        <h1 className="font-display text-3xl font-medium text-ink mb-4">
+    <div className="px-4 sm:px-6 md:px-8 py-12 md:py-20">
+      <div className="mx-auto max-w-full sm:max-w-[480px] xl:max-w-[560px]">
+        <h1 className="font-display text-2xl md:text-3xl font-medium text-ink mb-4">
           Обратная связь
         </h1>
-        <p className="text-ink/70 mb-12">
+        <p className="text-sm md:text-base text-ink/70 mb-8 md:mb-12">
           Расскажите о своих вопросах или предложениях
         </p>
 
@@ -77,7 +78,7 @@ export default function FeedbackPage() {
               placeholder="Как к вам обращаться?"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className={errors.name ? "border-red-500 focus:ring-red-500/30" : ""}
+              className={cn("w-full min-h-[44px]", errors.name ? "border-red-500 focus:ring-red-500/30" : "")}
             />
             {errors.name && (
               <p className="text-sm text-red-500 mt-1">{errors.name}</p>
@@ -88,8 +89,15 @@ export default function FeedbackPage() {
             <label className="block text-sm font-medium text-ink mb-2">
               Роль
             </label>
-            <div className="flex gap-6">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className="grid grid-cols-2 gap-3">
+              <label
+                className={cn(
+                  "flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all min-h-[44px]",
+                  form.role === "employer"
+                    ? "border-emerald bg-emerald/5"
+                    : "border-mist hover:border-emerald/50"
+                )}
+              >
                 <input
                   type="radio"
                   name="role"
@@ -98,9 +106,16 @@ export default function FeedbackPage() {
                   onChange={() => setForm((f) => ({ ...f, role: "employer" }))}
                   className="w-4 h-4 text-emerald focus:ring-emerald/30"
                 />
-                <span className="text-ink">Работодатель</span>
+                <span className="text-ink font-medium">Работодатель</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label
+                className={cn(
+                  "flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all min-h-[44px]",
+                  form.role === "candidate"
+                    ? "border-emerald bg-emerald/5"
+                    : "border-mist hover:border-emerald/50"
+                )}
+              >
                 <input
                   type="radio"
                   name="role"
@@ -111,7 +126,7 @@ export default function FeedbackPage() {
                   }
                   className="w-4 h-4 text-emerald focus:ring-emerald/30"
                 />
-                <span className="text-ink">Соискатель</span>
+                <span className="text-ink font-medium">Соискатель</span>
               </label>
             </div>
             {errors.role && (
@@ -128,7 +143,7 @@ export default function FeedbackPage() {
               placeholder="your@email.com"
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              className={errors.email ? "border-red-500 focus:ring-red-500/30" : ""}
+              className={cn("w-full min-h-[44px]", errors.email ? "border-red-500 focus:ring-red-500/30" : "")}
             />
             {errors.email && (
               <p className="text-sm text-red-500 mt-1">{errors.email}</p>
@@ -146,9 +161,10 @@ export default function FeedbackPage() {
               onChange={(e) =>
                 setForm((f) => ({ ...f, message: e.target.value }))
               }
-              className={`min-h-[120px] ${
+              className={cn(
+                "w-full min-h-[120px]",
                 errors.message ? "border-red-500 focus:ring-red-500/30" : ""
-              }`}
+              )}
             />
             {errors.message && (
               <p className="text-sm text-red-500 mt-1">{errors.message}</p>
@@ -159,7 +175,7 @@ export default function FeedbackPage() {
             type="submit"
             variant="primary"
             size="lg"
-            className="w-full"
+            className="w-full min-h-[44px]"
             disabled={loading}
           >
             {loading ? (

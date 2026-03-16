@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 const cardVariants = {
   default:
-    "bg-white rounded-[16px] shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] transition-shadow duration-200",
+    "bg-white rounded-[16px] shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] active:scale-[0.99] transition-all duration-200",
   flat: "bg-white rounded-[16px] border border-mist",
   bordered: "bg-white rounded-[16px] border-2 border-mist hover:border-emerald/30",
 };

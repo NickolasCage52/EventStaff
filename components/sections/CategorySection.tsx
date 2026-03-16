@@ -9,6 +9,7 @@ import {
   Receipt,
   Shirt,
 } from "lucide-react";
+import { Container } from "@/components/layout/Container";
 
 const categories = [
   { icon: UtensilsCrossed, label: "Официанты", href: "/candidates?role=Официант", count: 32 },
@@ -23,31 +24,31 @@ const categories = [
 
 export function CategorySection() {
   return (
-    <section className="px-6 md:px-12 py-20 bg-stone">
-      <div className="mx-auto max-w-7xl">
-        <h2 className="font-display text-3xl font-medium text-ink mb-16">
+    <section className="py-12 md:py-16 xl:py-20 bg-stone">
+      <Container>
+        <h2 className="font-display text-2xl md:text-3xl xl:text-4xl font-medium text-ink mb-8 md:mb-16">
           Категории персонала
         </h2>
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
           {categories.map((cat, i) => (
             <Link
               key={i}
               href={cat.href}
-              className="group flex flex-col items-center gap-3 rounded-2xl border border-mist bg-white p-8 transition-all duration-200 hover:bg-emerald hover:border-emerald hover:shadow-[var(--shadow-card-hover)]"
+              className="group flex flex-col items-center gap-3 rounded-2xl border border-mist bg-white p-4 md:p-6 lg:p-8 transition-all duration-200 hover:bg-emerald hover:border-emerald hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98]"
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-mist text-ink/70 group-hover:bg-white/20 group-hover:text-white transition-colors">
-                <cat.icon className="h-7 w-7" />
+              <div className="flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-xl bg-mist text-ink/70 group-hover:bg-white/20 group-hover:text-white transition-colors">
+                <cat.icon className="h-6 w-6 md:h-7 md:w-7" />
               </div>
-              <span className="font-medium text-ink group-hover:text-white transition-colors">
+              <span className="font-medium text-ink group-hover:text-white transition-colors text-sm md:text-base text-center break-words">
                 {cat.label}
               </span>
-              <span className="text-sm text-ink/60 group-hover:text-white/80">
+              <span className="text-xs md:text-sm text-ink/60 group-hover:text-white/80">
                 {cat.count} анкет
               </span>
             </Link>
           ))}
         </div>
-      </div>
+      </Container>
     </section>
   );
 }

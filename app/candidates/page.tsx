@@ -1,4 +1,5 @@
 import { CandidatesCatalog } from "@/components/catalog/CandidatesCatalog";
+import { Container } from "@/components/layout/Container";
 import { Suspense } from "react";
 
 export const metadata = {
@@ -8,15 +9,15 @@ export const metadata = {
 
 export default function CandidatesPage() {
   return (
-    <div className="px-6 md:px-12 py-12">
-      <div className="mx-auto max-w-7xl">
-        <p className="mb-12 text-ink/70 max-w-2xl">
+    <div className="py-12 md:py-16 xl:py-20">
+      <Container>
+        <p className="mb-8 md:mb-12 text-ink/70 max-w-2xl text-sm md:text-base">
           Найдите персонал для ваших мероприятий
         </p>
         <Suspense fallback={<div className="animate-pulse h-64 bg-mist rounded-2xl" />}>
           <CandidatesCatalog />
         </Suspense>
-      </div>
+      </Container>
     </div>
   );
 }

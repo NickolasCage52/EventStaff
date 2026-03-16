@@ -18,7 +18,7 @@ export function JobCard({ job }: JobCardProps) {
   return (
     <Card className="overflow-hidden group">
       <Link href={`/jobs/${job.id}`} className="block">
-        <div className="p-6 transition-shadow duration-200 group-hover:shadow-[var(--shadow-card-hover)] cursor-pointer">
+        <div className="p-4 md:p-6 transition-shadow duration-200 group-hover:shadow-[var(--shadow-card-hover)] group-active:scale-[0.98] cursor-pointer">
           <div className="flex items-start justify-between gap-2 mb-3">
             <div className="flex flex-wrap gap-2">
               <Badge variant="format" size="sm">
@@ -31,7 +31,7 @@ export function JobCard({ job }: JobCardProps) {
                 e.preventDefault();
                 setIsFavorite(!isFavorite);
               }}
-              className="p-1.5 rounded-full hover:bg-mist transition-colors"
+              className="p-2 rounded-full hover:bg-mist transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               aria-label="В избранное"
             >
               <Heart
@@ -39,7 +39,7 @@ export function JobCard({ job }: JobCardProps) {
               />
             </button>
           </div>
-          <h3 className="font-display text-[22px] font-medium text-ink mb-1">
+          <h3 className="font-display text-lg md:text-xl xl:text-[22px] font-medium text-ink mb-1 break-words">
             {job.role}
           </h3>
           <p className="text-sm text-ink/60 mb-4">{job.company}</p>

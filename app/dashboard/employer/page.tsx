@@ -18,15 +18,16 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { JobCard } from "@/components/ui/JobCard";
 import { jobs } from "@/data/jobs";
+import { cn } from "@/lib/utils";
 
 type Tab = "dashboard" | "jobs" | "responses" | "search" | "settings";
 
 const navItems = [
-  { id: "dashboard" as Tab, label: "Дашборд", icon: LayoutDashboard },
-  { id: "jobs" as Tab, label: "Мои вакансии", icon: Briefcase },
-  { id: "responses" as Tab, label: "Отклики", icon: Users },
-  { id: "search" as Tab, label: "Поиск кандидатов", icon: Search },
-  { id: "settings" as Tab, label: "Настройки", icon: Settings },
+  { id: "dashboard" as Tab, label: "Дашборд", icon: LayoutDashboard, shortLabel: "Дашборд" },
+  { id: "jobs" as Tab, label: "Мои вакансии", icon: Briefcase, shortLabel: "Вакансии" },
+  { id: "responses" as Tab, label: "Отклики", icon: Users, shortLabel: "Отклики" },
+  { id: "search" as Tab, label: "Поиск кандидатов", icon: Search, shortLabel: "Поиск" },
+  { id: "settings" as Tab, label: "Настройки", icon: Settings, shortLabel: "Настройки" },
 ];
 
 const stats = [
@@ -76,13 +77,13 @@ export default function EmployerDashboardPage() {
   };
 
   return (
-    <div className="px-6 md:px-12 py-12">
+    <div className="px-4 sm:px-6 md:px-8 lg:px-12 py-8 md:py-12 pb-20 xl:pb-8">
       <div className="mx-auto max-w-5xl">
-        <h1 className="font-display text-3xl font-medium text-ink mb-8">
+        <h1 className="font-display text-2xl md:text-3xl font-medium text-ink mb-6 md:mb-8">
           Личный кабинет работодателя
         </h1>
-        <div className="flex gap-8">
-      <aside className="w-60 shrink-0 sticky top-24 self-start">
+        <div className="flex flex-col xl:flex-row gap-8">
+      <aside className="hidden xl:block w-60 shrink-0 sticky top-24 self-start">
         <div className="flex flex-col items-center gap-4 mb-8">
           <Avatar name="Ресторан «Панорама»" size="xl" />
           <div className="text-center">
@@ -95,11 +96,12 @@ export default function EmployerDashboardPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              className={cn(
+                "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors min-h-[44px]",
                 activeTab === tab.id
                   ? "bg-emerald text-white"
                   : "text-ink/70 hover:bg-mist hover:text-ink"
-              }`}
+              )}
             >
               <tab.icon className="h-5 w-5" />
               {tab.label}
@@ -109,17 +111,36 @@ export default function EmployerDashboardPage() {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full mt-8 gap-2 text-red-600 hover:bg-red-500/10 hover:text-red-600"
+          className="w-full mt-8 gap-2 text-red-600 hover:bg-red-500/10 hover:text-red-600 min-h-[44px]"
         >
           <LogOut className="h-4 w-4" />
           Выйти
         </Button>
       </aside>
 
+      {/* Mobile bottom navigation */}
+      <nav className="xl:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-mist z-40 h-16 safe-area-pb">
+        <div className="flex h-full">
+          {navItems.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center gap-1 text-xs min-h-[44px] min-w-0",
+                activeTab === tab.id ? "text-emerald" : "text-ink/40"
+              )}
+            >
+              <tab.icon size={20} />
+              <span className="truncate px-1">{tab.shortLabel}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
       <div className="flex-1 min-w-0">
         {activeTab === "dashboard" && (
           <div className="space-y-8">
-            <div className="grid grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {stats.map((stat, i) => (
                 <Card key={i} className="p-6">
                   <CardContent className="p-0">
@@ -170,7 +191,7 @@ export default function EmployerDashboardPage() {
             <div className="flex justify-end">
               <Button
                 variant="primary"
-                className="gap-2"
+                className="gap-2 min-h-[44px] w-full sm:w-auto"
                 onClick={() => setShowCreateModal(true)}
               >
                 <Plus className="h-4 w-4" />
@@ -180,20 +201,20 @@ export default function EmployerDashboardPage() {
             <div className="space-y-4">
               {jobs.slice(0, 4).map((job) => (
                 <Card key={job.id} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-ink">{job.role}</h3>
-                      <p className="text-sm text-ink/60">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-ink break-words">{job.role}</h3>
+                      <p className="text-sm text-ink/60 break-words">
                         {job.company} • {job.date}
                       </p>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                       <Badge variant="available">Активна</Badge>
                       <span className="text-sm text-ink/60">5 откликов</span>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" className="min-h-[44px]">
                         Редактировать
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-ink/60">
+                      <Button variant="ghost" size="sm" className="text-ink/60 min-h-[44px]">
                         Закрыть вакансию
                       </Button>
                     </div>
@@ -207,7 +228,57 @@ export default function EmployerDashboardPage() {
         {activeTab === "responses" && (
           <Card className="p-0">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              {/* Mobile: cards */}
+              <div className="block md:hidden space-y-3 p-4">
+                {responsesData.map((r) => (
+                  <div key={r.id} className="bg-white rounded-xl p-4 shadow-[var(--shadow-card)] border border-mist">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink break-words">{r.candidate}</p>
+                        <p className="text-sm text-ink/60 break-words">{r.vacancy}</p>
+                      </div>
+                      <Badge
+                        variant={
+                          responseStatuses[r.id] === "accepted"
+                            ? "available"
+                            : responseStatuses[r.id] === "rejected"
+                            ? "default"
+                            : "pending"
+                        }
+                      >
+                        {responseStatuses[r.id] === "accepted"
+                          ? "Принят"
+                          : responseStatuses[r.id] === "rejected"
+                          ? "Отклонён"
+                          : "На рассмотрении"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-ink/40 mt-2">{r.date}</p>
+                    {responseStatuses[r.id] === "pending" && (
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 min-h-[44px] text-green-600"
+                          onClick={() => setStatus(r.id, "accepted")}
+                        >
+                          Принять
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 min-h-[44px] text-ink/60"
+                          onClick={() => setStatus(r.id, "rejected")}
+                        >
+                          Отклонить
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {/* Desktop: table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-mist">
@@ -307,8 +378,12 @@ export default function EmployerDashboardPage() {
       </div>
 
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50">
-          <div className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-ink/50">
+          <div className={cn(
+            "bg-white w-full max-h-[90vh] overflow-y-auto",
+            "inset-x-0 bottom-0 rounded-t-2xl p-6",
+            "md:inset-auto md:rounded-2xl md:p-8 md:max-w-lg md:mx-4"
+          )}>
             <h2 className="font-display text-2xl font-medium text-ink mb-6">
               Создать вакансию
             </h2>

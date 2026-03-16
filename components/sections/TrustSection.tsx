@@ -1,6 +1,7 @@
 import { Star, Shield, CheckCircle, Zap } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { RatingStars } from "@/components/ui/RatingStars";
+import { Container } from "@/components/layout/Container";
 
 const reviews = [
   {
@@ -34,16 +35,16 @@ const trustItems = [
 
 export function TrustSection() {
   return (
-    <section className="px-6 md:px-12 py-20 bg-stone border-t border-mist">
-      <div className="mx-auto max-w-7xl">
-        <h2 className="font-display text-3xl font-medium text-ink mb-16">
+    <section className="py-12 md:py-16 xl:py-20 bg-stone border-t border-mist">
+      <Container>
+        <h2 className="font-display text-2xl md:text-3xl xl:text-4xl font-medium text-ink mb-8 md:mb-16">
           Отзывы
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+        <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-2 xl:grid-cols-3 md:overflow-visible md:gap-8 mb-8 md:mb-16">
           {reviews.map((r, i) => (
             <div
               key={i}
-              className="rounded-2xl bg-white p-6 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] transition-shadow duration-200"
+              className="min-w-[280px] md:min-w-0 snap-start flex-shrink-0 rounded-2xl bg-white p-6 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] transition-all duration-200"
             >
               <div className="flex gap-4 mb-4">
                 <Avatar name={r.name} size="md" />
@@ -53,11 +54,13 @@ export function TrustSection() {
                 </div>
               </div>
               <RatingStars rating={r.rating} size="md" className="mb-4" />
-              <p className="text-ink/80 leading-relaxed">&quot;{r.text}&quot;</p>
+              <p className="text-ink/80 leading-relaxed text-sm md:text-base break-words">
+                &quot;{r.text}&quot;
+              </p>
             </div>
           ))}
         </div>
-        <div className="flex flex-wrap justify-center gap-12">
+        <div className="flex flex-wrap justify-center gap-8 md:gap-12">
           {trustItems.map((item, i) => (
             <div
               key={i}
@@ -70,7 +73,7 @@ export function TrustSection() {
             </div>
           ))}
         </div>
-      </div>
+      </Container>
     </section>
   );
 }

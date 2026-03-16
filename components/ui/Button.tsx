@@ -19,9 +19,9 @@ const buttonVariants = cva(
           "bg-mocha text-white hover:bg-mocha-light",
       },
       size: {
-        sm: "h-9 px-4 text-sm",
-        md: "h-11 px-6 text-base",
-        lg: "h-12 px-8 text-lg",
+        sm: "h-9 min-h-[44px] px-4 text-sm",
+        md: "h-11 min-h-[44px] px-6 text-base",
+        lg: "h-12 min-h-[44px] px-8 text-lg",
       },
     },
     defaultVariants: {
