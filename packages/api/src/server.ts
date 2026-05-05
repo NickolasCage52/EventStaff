@@ -158,9 +158,9 @@ async function buildApp() {
 
 async function start() {
   const app = await buildApp();
-  await app.ready();
   attachChatSocket(app);
   await startEmailWorkers(app);
+  await app.ready();
 
   try {
     await app.listen({ port: PORT, host: HOST });

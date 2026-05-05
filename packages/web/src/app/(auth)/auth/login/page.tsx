@@ -16,6 +16,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const { setUser } = useAuthStore();
   const { toast } = useToast();
+  const sessionExpired = searchParams.get('reason') === 'session_expired';
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -95,6 +96,11 @@ function LoginForm() {
 
   return (
     <div className="rounded-modal border border-gray-200 bg-white p-8 shadow-card">
+      {sessionExpired && (
+        <div className="mb-6 rounded-input border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          Ваша сессия истекла. Войдите снова, чтобы продолжить.
+        </div>
+      )}
       <h1 className="text-center text-2xl font-bold text-gray-900">Вход в аккаунт</h1>
       <p className="mt-2 text-center text-sm text-gray-500">
         Нет аккаунта?{' '}

@@ -1,9 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { ComplaintStatus, Prisma, Role, UserStatus } from '@prisma/client';
+import { ComplaintStatus, Prisma, Role, ShiftStatus, UserStatus } from '@prisma/client';
 import type { EmailLogStatus, InAppNotificationType } from '@prisma/client';
 import { ReliabilityService } from '@/services/reliability-service';
 import { IndividualRequestStatus } from '@prisma/client';
+import { invalidateAllUserTokens } from '@/lib/refresh-tokens';
 
 export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   const adminAuth = [fastify.authenticate, fastify.requireRole(['admin'])];
@@ -43,6 +44,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           roles: true,
           workerProfile: { select: { id: true, firstName: true, lastName: true, photoUrl: true, visibility: true, isVerified: true } },
           employerProfile: { select: { id: true, companyName: true, contactName: true, logoUrl: true, isVerified: true } },
+          userReliabilityScore: { select: { isRestricted: true, strikeCount: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: (query.page - 1) * 20,
@@ -328,6 +330,10 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch('/users/:id/unrestrict', { preHandler: adminAuth }, async (request, reply) => {
     const { id: userId } = request.params as { id: string };
     const adminId = request.jwtUser.sub;
+    const body = z
+      .object({ reason: z.string().max(2000).optional() })
+      .parse(request.body ?? {});
+
     await fastify.prisma.userReliabilityScore.upsert({
       where: { userId },
       create: { userId, strikeCount: 0, isRestricted: false },
@@ -338,9 +344,10 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     await fastify.prisma.adminAuditLog.create({
       data: {
         adminId,
-        action: 'user_unrestrict',
-        entityType: 'user',
+        action: 'user.unrestrict',
+        entityType: 'User',
         entityId: userId,
+        details: { reason: body.reason ?? null },
         ip: request.ip,
       },
     });
@@ -356,30 +363,86 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.patch('/users/:id/ban', { preHandler: adminAuth }, async (request, reply) => {
     const { id: userId } = request.params as { id: string };
+    const body = z
+      .object({ reason: z.string().min(10, 'Укажите причину (минимум 10 символов)').max(2000) })
+      .parse(request.body ?? {});
+
     if (userId === request.jwtUser.sub) {
-      return reply.status(400).send({ error: { code: 'INVALID' } });
+      return reply.status(400).send({ error: { code: 'INVALID', message: 'Cannot ban yourself' } });
     }
-    await fastify.prisma.user.update({
+
+    const user = await fastify.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'User not found' } });
+    }
+
+    const updated = await fastify.prisma.user.update({
       where: { id: userId },
       data: { status: UserStatus.banned },
     });
+
+    // Invalidate all active sessions immediately + add to banned blocklist (15 min TTL = access token lifetime)
+    await invalidateAllUserTokens(fastify.redis, userId);
+    await fastify.redis.setex(`banned:${userId}`, 900, '1');
+
     await fastify.prisma.adminAuditLog.create({
       data: {
         adminId: request.jwtUser.sub,
-        action: 'user_ban',
-        entityType: 'user',
+        action: 'user.ban',
+        entityType: 'User',
         entityId: userId,
+        details: { reason: body.reason },
         ip: request.ip,
       },
     });
+
     await fastify.notificationService.create({
       userId,
       type: 'SYSTEM',
       title: 'Аккаунт заблокирован',
-      body: 'Администратор ограничил доступ к аккаунту.',
+      body: 'Администратор заблокировал ваш аккаунт.',
       data: { banned: true },
     });
-    return reply.send({ data: { success: true } });
+
+    return reply.send({ data: updated });
+  });
+
+  fastify.patch('/users/:id/unban', { preHandler: adminAuth }, async (request, reply) => {
+    const { id: userId } = request.params as { id: string };
+    const body = z
+      .object({ reason: z.string().max(2000).optional() })
+      .parse(request.body ?? {});
+
+    const user = await fastify.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'User not found' } });
+    }
+
+    const updated = await fastify.prisma.user.update({
+      where: { id: userId },
+      data: { status: UserStatus.active },
+    });
+
+    await fastify.prisma.adminAuditLog.create({
+      data: {
+        adminId: request.jwtUser.sub,
+        action: 'user.unban',
+        entityType: 'User',
+        entityId: userId,
+        details: { reason: body.reason ?? null },
+        ip: request.ip,
+      },
+    });
+
+    await fastify.notificationService.create({
+      userId,
+      type: 'SYSTEM',
+      title: 'Аккаунт разблокирован',
+      body: 'Администратор восстановил доступ к вашему аккаунту.',
+      data: { unbanned: true },
+    });
+
+    return reply.send({ data: updated });
   });
 
   fastify.get('/email-logs', { preHandler: adminAuth }, async (request, reply) => {
@@ -680,6 +743,103 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         ip: request.ip,
       },
     });
+    return reply.send({ data: updated });
+  });
+
+  // ─── Disputed Shifts ──────────────────────────────────────────────────────
+
+  // GET /admin/shifts — list shifts with optional status filter (defaults to DISPUTED)
+  fastify.get('/shifts', { preHandler: adminAuth }, async (request, reply) => {
+    const query = z
+      .object({
+        status: z.nativeEnum(ShiftStatus).optional().default(ShiftStatus.DISPUTED),
+        page: z.coerce.number().int().positive().default(1),
+      })
+      .parse(request.query);
+
+    const limit = 20;
+    const where: Prisma.ShiftWhereInput = { status: query.status };
+
+    const [total, shifts] = await fastify.prisma.$transaction([
+      fastify.prisma.shift.count({ where }),
+      fastify.prisma.shift.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        skip: (query.page - 1) * limit,
+        take: limit,
+        include: {
+          booking: {
+            include: {
+              linkedVacancy: { select: { id: true, title: true, dateStart: true } },
+              worker: { select: { id: true, firstName: true, lastName: true, photoUrl: true } },
+              employer: { select: { id: true, companyName: true, contactName: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return reply.send({
+      data: shifts,
+      meta: { total, page: query.page, limit, totalPages: Math.ceil(total / limit) },
+    });
+  });
+
+  // PATCH /admin/shifts/:id/resolve — resolve a disputed shift
+  fastify.patch('/shifts/:id/resolve', { preHandler: adminAuth }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = z
+      .object({
+        outcome: z.enum(['WORKER_FAULT', 'EMPLOYER_FAULT', 'MUTUAL']),
+        note: z.string().max(2000).optional(),
+      })
+      .parse(request.body);
+
+    const shift = await fastify.prisma.shift.findUnique({
+      where: { id },
+      include: {
+        booking: { include: { worker: { select: { userId: true, id: true } }, employer: { select: { userId: true } } } },
+      },
+    });
+
+    if (!shift) {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Смена не найдена' } });
+    }
+    if (shift.status !== ShiftStatus.DISPUTED) {
+      return reply.status(400).send({ error: { code: 'INVALID_STATE', message: 'Смена не является спорной' } });
+    }
+
+    const reliabilityService = new ReliabilityService(fastify.prisma, fastify.notificationService);
+
+    // Determine new status + reliability impact
+    let newShiftStatus: ShiftStatus = ShiftStatus.COMPLETED;
+    if (body.outcome === 'WORKER_FAULT') {
+      newShiftStatus = ShiftStatus.FAILED;
+    }
+    // EMPLOYER_FAULT and MUTUAL → shift completes normally, worker not penalized
+
+    const [updated] = await fastify.prisma.$transaction([
+      fastify.prisma.shift.update({
+        where: { id },
+        data: { status: newShiftStatus },
+      }),
+      fastify.prisma.adminAuditLog.create({
+        data: {
+          adminId: request.jwtUser.sub,
+          action: 'shift.resolve',
+          entityType: 'Shift',
+          entityId: id,
+          details: { outcome: body.outcome, note: body.note ?? null, newStatus: newShiftStatus },
+          ip: request.ip,
+        },
+      }),
+    ]);
+
+    // Recalculate reliability for worker if needed
+    if (body.outcome === 'WORKER_FAULT' && shift.booking?.worker?.userId) {
+      await reliabilityService.recalculate(shift.booking.worker.userId).catch(() => {});
+    }
+
     return reply.send({ data: updated });
   });
 };

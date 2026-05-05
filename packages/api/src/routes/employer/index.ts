@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Prisma, ShiftStatus } from '@prisma/client';
 import { employerProfileUpdateSchema, vacancyCreateSchema } from '@unity/shared';
 import { getUserRestriction, restrictedReply } from '@/lib/restriction';
+import { publicSiteUrl } from '@/lib/public-site-url';
 
 export const employerRoutes: FastifyPluginAsync = async (fastify) => {
   const employerAuth = [
@@ -307,10 +308,7 @@ export const employerRoutes: FastifyPluginAsync = async (fastify) => {
       where: { id: application.workerId },
       include: { user: { select: { id: true, email: true } } },
     });
-    const site =
-      process.env.PUBLIC_SITE_URL?.replace(/\/$/, '') ||
-      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ||
-      'http://localhost:3000';
+    const site = publicSiteUrl();
     const employerName =
       profile.companyName || profile.contactName || 'Работодатель';
 
@@ -409,10 +407,7 @@ export const employerRoutes: FastifyPluginAsync = async (fastify) => {
       include: { user: { select: { id: true, email: true } } },
     });
     if (worker?.user) {
-      const site =
-        process.env.PUBLIC_SITE_URL?.replace(/\/$/, '') ||
-        process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ||
-        'http://localhost:3000';
+      const site = publicSiteUrl();
       const employerName =
         profile.companyName || profile.contactName || 'Работодатель';
       const eventDate = vacancy.dateStart.toLocaleDateString('ru-RU', {
@@ -494,25 +489,134 @@ export const employerRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ data: { success: true } });
   });
 
-  // GET /shifts-for-payment
-  fastify.get('/shifts-for-payment', { preHandler: employerAuth }, async (request, reply) => {
+  // GET /shifts
+  fastify.get('/shifts', { preHandler: employerAuth }, async (request, reply) => {
+    const query = z
+      .object({
+        status: z.enum(['active', 'completed', 'needs_payment']).optional(),
+        page: z.coerce.number().int().positive().default(1),
+      })
+      .parse(request.query);
+
     const uid = request.jwtUser.sub;
-    const shifts = await fastify.prisma.shift.findMany({
-      where: {
-        employerId: uid,
+    const limit = 20;
+
+    const statusMap: Record<string, ShiftStatus[]> = {
+      active: [ShiftStatus.PENDING, ShiftStatus.ACTIVE, ShiftStatus.DISPUTED],
+      completed: [ShiftStatus.COMPLETED, ShiftStatus.FAILED],
+    };
+
+    let where: Prisma.ShiftWhereInput = { employerId: uid };
+
+    if (query.status === 'needs_payment') {
+      where = {
+        ...where,
         status: ShiftStatus.COMPLETED,
-      },
-      orderBy: { completedAt: 'desc' },
-      include: {
-        booking: {
-          include: {
-            worker: { select: { firstName: true, lastName: true, id: true } },
+        payments: { none: { status: { in: ['COMPLETED' as const] } } },
+      };
+    } else if (query.status) {
+      where = { ...where, status: { in: statusMap[query.status] } };
+    }
+
+    const [total, shifts] = await fastify.prisma.$transaction([
+      fastify.prisma.shift.count({ where }),
+      fastify.prisma.shift.findMany({
+        where,
+        orderBy: query.status === 'needs_payment' ? { completedAt: 'asc' } : { createdAt: 'desc' },
+        skip: (query.page - 1) * limit,
+        take: limit,
+        include: {
+          booking: {
+            include: {
+              linkedVacancy: { select: { id: true, title: true, dateStart: true } },
+              worker: { select: { id: true, firstName: true, lastName: true, photoUrl: true } },
+            },
           },
+          reviews: { select: { id: true, reviewerId: true } },
+          payments: { select: { id: true, status: true, amount: true } },
         },
-        payments: true,
-      },
-      take: 200,
+      }),
+    ]);
+
+    return reply.send({
+      data: shifts,
+      meta: { total, page: query.page, limit, totalPages: Math.ceil(total / limit) },
     });
-    return reply.send({ data: shifts });
   });
+
+  // GET /invitations — sent invitations history
+  fastify.get('/invitations', { preHandler: employerAuth }, async (request, reply) => {
+    const query = z
+      .object({ page: z.coerce.number().int().positive().default(1) })
+      .parse(request.query);
+
+    const profile = await fastify.prisma.employerProfile.findUnique({
+      where: { userId: request.jwtUser.sub },
+    });
+    if (!profile) {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Profile not found' } });
+    }
+
+    const limit = 20;
+    const where: Prisma.ApplicationWhereInput = {
+      status: 'invited',
+      vacancy: { employerId: profile.id },
+    };
+
+    const [total, rows] = await fastify.prisma.$transaction([
+      fastify.prisma.application.count({ where }),
+      fastify.prisma.application.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (query.page - 1) * limit,
+        take: limit,
+        include: {
+          vacancy: { select: { id: true, title: true, dateStart: true } },
+          worker: { select: { id: true, firstName: true, lastName: true, photoUrl: true } },
+        },
+      }),
+    ]);
+
+    return reply.send({
+      data: rows,
+      meta: { total, page: query.page, limit, totalPages: Math.ceil(total / limit) },
+    });
+  });
+
+  // GET /shifts-for-payment — paginated
+  fastify.get<{ Querystring: { page?: string; perPage?: string } }>(
+    '/shifts-for-payment',
+    { preHandler: employerAuth },
+    async (request, reply) => {
+      const uid = request.jwtUser.sub;
+      const page = Math.max(1, Number(request.query.page) || 1);
+      const perPage = Math.min(50, Math.max(1, Number(request.query.perPage) || 20));
+      const skip = (page - 1) * perPage;
+
+      const where = { employerId: uid, status: ShiftStatus.COMPLETED };
+      const [total, shifts] = await Promise.all([
+        fastify.prisma.shift.count({ where }),
+        fastify.prisma.shift.findMany({
+          where,
+          orderBy: { completedAt: 'desc' },
+          skip,
+          take: perPage,
+          include: {
+            booking: {
+              include: {
+                worker: { select: { firstName: true, lastName: true, id: true } },
+              },
+            },
+            payments: true,
+          },
+        }),
+      ]);
+
+      return reply.send({
+        success: true,
+        data: shifts,
+        meta: { total, page, perPage, totalPages: Math.ceil(total / perPage) },
+      });
+    },
+  );
 };

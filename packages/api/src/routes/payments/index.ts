@@ -147,26 +147,43 @@ export const paymentRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  // GET /payments/history  (спецификация: /dashboard/payments)
-  fastify.get('/history', { preHandler: authAny }, async (request, reply) => {
-    const uid = request.jwtUser.sub;
-    const asRole = request.jwtUser.activeRole;
-    const where =
-      asRole === 'employer' ? { payerId: uid } : { payeeId: uid };
-    const rows = await fastify.prisma.shiftPayment.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-      include: {
-        shift: {
+  // GET /payments/history — paginated
+  fastify.get<{ Querystring: { page?: string; perPage?: string } }>(
+    '/history',
+    { preHandler: authAny },
+    async (request, reply) => {
+      const uid = request.jwtUser.sub;
+      const asRole = request.jwtUser.activeRole;
+      const where = asRole === 'employer' ? { payerId: uid } : { payeeId: uid };
+
+      const page = Math.max(1, Number(request.query.page) || 1);
+      const perPage = Math.min(50, Math.max(1, Number(request.query.perPage) || 20));
+      const skip = (page - 1) * perPage;
+
+      const [total, rows] = await Promise.all([
+        fastify.prisma.shiftPayment.count({ where }),
+        fastify.prisma.shiftPayment.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: perPage,
           include: {
-            booking: { select: { date: true, location: true } },
+            shift: {
+              include: {
+                booking: { select: { date: true, location: true } },
+              },
+            },
           },
-        },
-      },
-    });
-    return reply.send({ data: rows });
-  });
+        }),
+      ]);
+
+      return reply.send({
+        success: true,
+        data: rows,
+        meta: { total, page, perPage, totalPages: Math.ceil(total / perPage) },
+      });
+    },
+  );
 
   // POST /payments/webhook
   fastify.post<{ Querystring: { secret?: string } }>(

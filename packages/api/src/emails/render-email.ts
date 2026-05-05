@@ -5,6 +5,7 @@ import { cancellationEmail } from '@/emails/templates/cancellation.email';
 import { complaintEmail } from '@/emails/templates/complaint.email';
 import { invitationEmail } from '@/emails/templates/invitation.email';
 import { newApplicationEmail } from '@/emails/templates/new-application.email';
+import { passwordResetEmail } from '@/emails/templates/password-reset.email';
 import { reviewEmail } from '@/emails/templates/review.email';
 import { shiftReminderEmail } from '@/emails/templates/shift-reminder.email';
 import { unpaidReminderEmail } from '@/emails/templates/unpaid-reminder.email';
@@ -71,6 +72,11 @@ export function renderEmailForType(
         amount: d.amount ?? '',
         shiftDate: d.shiftDate ?? '',
         ctaUrl: d.ctaUrl ?? '',
+      });
+    case 'PASSWORD_RESET':
+      return passwordResetEmail({
+        name: d.name ?? 'пользователь',
+        resetUrl: d.resetUrl ?? '',
       });
     case 'PAYMENT_RECEIVED': {
       const title = 'Платёж на платформе Юнити';

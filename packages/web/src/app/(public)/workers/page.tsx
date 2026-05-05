@@ -7,7 +7,8 @@ import { useFilters } from '@/lib/filters/useFilters';
 import { WorkerCard } from '@/components/catalog/WorkerCard';
 import { useAuthStore } from '@/stores/authStore';
 import { apiClient, ApiError } from '@/lib/api/client';
-import { SlidersHorizontal, X, Users } from 'lucide-react';
+import { SlidersHorizontal, X, Users, RotateCcw, Search } from 'lucide-react';
+import { WorkerCardSkeleton } from '@/components/catalog/WorkerCardSkeleton';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
@@ -38,6 +39,7 @@ function WorkersCatalog() {
   const [total, setTotal] = useState(0);
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
 
@@ -70,8 +72,9 @@ function WorkersCatalog() {
     limit: 20,
   };
 
-  useEffect(() => {
+  const fetchWorkers = () => {
     setLoading(true);
+    setError(false);
     const searchParams = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined) {
@@ -85,9 +88,12 @@ function WorkersCatalog() {
         setWorkers(j.data ?? []);
         setTotal(j.meta?.total ?? 0);
       })
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [JSON.stringify(params)]);
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(fetchWorkers, [JSON.stringify(params)]);
 
   const toggleFavorite = async (workerId: string) => {
     if (!isAuthenticated) return;
@@ -253,23 +259,32 @@ function WorkersCatalog() {
 
       {loading ? (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-52 animate-pulse rounded-card bg-gray-200" />
+          {[...Array(8)].map((_, i) => (
+            <WorkerCardSkeleton key={i} />
           ))}
+        </div>
+      ) : error ? (
+        <div className="mt-16 flex flex-col items-center gap-4 text-center">
+          <RotateCcw className="h-10 w-10 text-gray-300" />
+          <h3 className="font-semibold text-gray-900">Не удалось загрузить данные</h3>
+          <button
+            onClick={fetchWorkers}
+            className="rounded-input bg-primary-500 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-600"
+          >
+            Попробовать снова
+          </button>
         </div>
       ) : workers.length === 0 ? (
         <div className="mt-16 flex flex-col items-center gap-3 text-center">
-          <Users className="h-12 w-12 text-gray-300" />
-          <h3 className="font-semibold text-gray-900">Ничего не найдено</h3>
+          <Search className="h-12 w-12 text-gray-300" />
+          <h3 className="font-semibold text-gray-900">По вашему запросу ничего не найдено</h3>
           <p className="text-sm text-gray-500">Попробуйте изменить фильтры</p>
-          {hasActiveFilters && (
-            <button
-              onClick={resetFilters}
-              className="mt-2 rounded-input bg-primary-500 px-5 py-2 text-sm font-semibold text-white"
-            >
-              Сбросить фильтры
-            </button>
-          )}
+          <button
+            onClick={resetFilters}
+            className="mt-2 rounded-input bg-primary-500 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-600"
+          >
+            Сбросить фильтры
+          </button>
         </div>
       ) : (
         <>

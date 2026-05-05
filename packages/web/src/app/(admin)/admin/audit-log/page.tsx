@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { useToast } from '@/components/ui/toast-context';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ScrollText } from 'lucide-react';
+import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 
 type Row = {
   id: string;
@@ -84,6 +85,17 @@ export default function AdminAuditLogPage() {
               <tr>
                 <td colSpan={5} className="px-2 py-6 text-white/50">
                   Загрузка…
+                </td>
+              </tr>
+            )}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-2 py-4">
+                  <AdminEmptyState
+                    icon={ScrollText}
+                    title="Записей нет"
+                    description="Действия администраторов будут отображаться здесь"
+                  />
                 </td>
               </tr>
             )}

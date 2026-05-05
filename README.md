@@ -108,7 +108,9 @@ unity/
 
 ## Деплой фронтенда на Vercel
 
-Монорепозиторий: корень проекта на Vercel — `packages/web`, команды в `packages/web/vercel.json`. Инструкция и команды для Git: [docs/deploy-vercel.md](docs/deploy-vercel.md).
+Монорепозиторий: **Root Directory** в Vercel — `packages/web`; установка и сборка — в [packages/web/vercel.json](packages/web/vercel.json) (из корня репо: `pnpm` + `turbo build --filter=@unity/web`).
+
+Переменные: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`, **тот же `JWT_SECRET`, что и на API** (см. [docs/deploy-vercel.md](docs/deploy-vercel.md)). Бэкенд (Fastify, Prisma, Socket.io, BullMQ) на Vercel не поднимается — только отдельный хост.
 
 ## Лицензия
 

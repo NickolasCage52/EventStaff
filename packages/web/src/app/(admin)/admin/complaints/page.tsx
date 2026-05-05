@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient, ApiError } from '@/lib/api/client';
 import { useToast } from '@/components/ui/toast-context';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MessageSquareWarning } from 'lucide-react';
+import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 
 type Complaint = {
   id: string;
@@ -155,11 +156,22 @@ export default function AdminComplaintsPage() {
                 </td>
               </tr>
             )}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-3 py-4">
+                  <AdminEmptyState
+                    icon={MessageSquareWarning}
+                    title="Нет жалоб"
+                    description="Все жалобы обработаны"
+                  />
+                </td>
+              </tr>
+            )}
             {!loading &&
               rows.map((c) => (
                 <tr
                   key={c.id}
-                  className="cursor-pointer border-b border-white/[0.05] text-white/90 hover:bg-white/[0.03]"
+                  className="cursor-pointer border-b border-white/[0.05] text-white/90 transition-colors hover:bg-white/[0.05]"
                   onClick={() => void open(c)}
                 >
                   <td className="px-3 py-2 whitespace-nowrap">

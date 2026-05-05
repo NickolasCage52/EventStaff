@@ -1,8 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { Prisma, StaffCategory } from '@prisma/client';
+import { Prisma, ShiftStatus, StaffCategory } from '@prisma/client';
 import { workerProfileUpdateSchema } from '@unity/shared';
 import { getUserRestriction, restrictedReply } from '@/lib/restriction';
+import { publicSiteUrl } from '@/lib/public-site-url';
 
 export const workerRoutes: FastifyPluginAsync = async (fastify) => {
   const workerAuth = [
@@ -85,6 +86,55 @@ export const workerRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ data: updated });
   });
 
+  // GET /shifts
+  fastify.get('/shifts', { preHandler: workerAuth }, async (request, reply) => {
+    const query = z
+      .object({
+        status: z.enum(['active', 'completed', 'cancelled']).optional(),
+        page: z.coerce.number().int().positive().default(1),
+      })
+      .parse(request.query);
+
+    const uid = request.jwtUser.sub;
+    const limit = 20;
+
+    const statusMap: Record<string, ShiftStatus[]> = {
+      active: [ShiftStatus.PENDING, ShiftStatus.ACTIVE, ShiftStatus.DISPUTED],
+      completed: [ShiftStatus.COMPLETED, ShiftStatus.FAILED],
+      cancelled: [ShiftStatus.CANCELLED],
+    };
+
+    const where: Prisma.ShiftWhereInput = {
+      workerId: uid,
+      ...(query.status ? { status: { in: statusMap[query.status] } } : {}),
+    };
+
+    const [total, shifts] = await fastify.prisma.$transaction([
+      fastify.prisma.shift.count({ where }),
+      fastify.prisma.shift.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (query.page - 1) * limit,
+        take: limit,
+        include: {
+          booking: {
+            include: {
+              linkedVacancy: { select: { id: true, title: true, dateStart: true, address: true } },
+              employer: { select: { companyName: true, contactName: true, logoUrl: true } },
+            },
+          },
+          reviews: { select: { id: true, reviewerId: true } },
+          payments: { select: { id: true, status: true, amount: true } },
+        },
+      }),
+    ]);
+
+    return reply.send({
+      data: shifts,
+      meta: { total, page: query.page, limit, totalPages: Math.ceil(total / limit) },
+    });
+  });
+
   // POST /categories — add a category
   fastify.post('/categories', { preHandler: workerAuth }, async (request, reply) => {
     const body = z
@@ -122,6 +172,85 @@ export const workerRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     return reply.status(201).send({ data: category });
+  });
+
+  // DELETE /categories/:id — remove a worker category
+  fastify.delete('/categories/:id', { preHandler: workerAuth }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const profile = await fastify.prisma.workerProfile.findUnique({
+      where: { userId: request.jwtUser.sub },
+    });
+    if (!profile) {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Profile not found' } });
+    }
+
+    const cat = await fastify.prisma.workerCategory.findFirst({
+      where: { id, workerId: profile.id },
+    });
+    if (!cat) {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Category not found' } });
+    }
+
+    await fastify.prisma.workerCategory.delete({ where: { id } });
+    return reply.send({ data: { success: true } });
+  });
+
+  // PATCH /applications/:id/respond — worker accepts or declines invitation
+  fastify.patch('/applications/:id/respond', { preHandler: workerAuth }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = z
+      .object({
+        action: z.enum(['ACCEPT', 'DECLINE']),
+        message: z.string().max(500).optional(),
+      })
+      .parse(request.body);
+
+    const profile = await fastify.prisma.workerProfile.findUnique({
+      where: { userId: request.jwtUser.sub },
+    });
+    if (!profile) {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Profile not found' } });
+    }
+
+    const application = await fastify.prisma.application.findUnique({
+      where: { id },
+      include: {
+        vacancy: {
+          include: { employer: { include: { user: { select: { id: true, email: true } } } } },
+        },
+      },
+    });
+
+    if (!application) {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Invitation not found' } });
+    }
+    if (application.workerId !== profile.id) {
+      return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'No access' } });
+    }
+    if (application.status !== 'invited') {
+      return reply.status(400).send({ error: { code: 'INVALID_STATE', message: 'Приглашение уже обработано' } });
+    }
+
+    const newStatus = body.action === 'ACCEPT' ? 'confirmed' : 'rejected';
+    const updated = await fastify.prisma.application.update({
+      where: { id },
+      data: { status: newStatus },
+    });
+
+    const employerUserId = application.vacancy.employer.user?.id;
+    if (employerUserId) {
+      const workerName = `${profile.firstName} ${profile.lastName}`.trim() || 'Работник';
+      await fastify.notificationService.create({
+        userId: employerUserId,
+        type: 'APPLICATION_RESPONSE',
+        title: body.action === 'ACCEPT' ? 'Приглашение принято' : 'Приглашение отклонено',
+        body: `${workerName} ${body.action === 'ACCEPT' ? 'принял' : 'отклонил'} приглашение на «${application.vacancy.title}»`,
+        data: { applicationId: id, vacancyId: application.vacancyId },
+      });
+    }
+
+    return reply.send({ data: updated });
   });
 
   // GET /applications
@@ -218,10 +347,7 @@ export const workerRoutes: FastifyPluginAsync = async (fastify) => {
     });
     if (vacancyFull?.employer.user) {
       const employerUser = vacancyFull.employer.user;
-      const site =
-        process.env.PUBLIC_SITE_URL?.replace(/\/$/, '') ||
-        process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ||
-        'http://localhost:3000';
+      const site = publicSiteUrl();
       const workerName = `${profile.firstName} ${profile.lastName}`.trim();
       const workerProfileBits =
         profile.bio?.trim().slice(0, 220) || 'Откройте кабинет, чтобы увидеть профиль исполнителя.';
@@ -348,7 +474,7 @@ export const workerRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Profile not found' } });
     }
 
-    // TODO: интеграция с Application booking — следующий этап
+    // BACKLOG: интеграция с Booking — см. BACKLOG.md
 
     await fastify.prisma.$transaction(
       body.slots.map((slot) =>

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
@@ -11,16 +10,12 @@ import { Button } from '@/components/ui/button';
  * (например, кабинеты). Сегмент (public) использует `(public)/error.tsx`.
  */
 export default function AppErrorPage({
-  error,
-  reset: _reset,
+  error: _error,
+  reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
-
   return (
     <>
       <Header />
@@ -34,8 +29,16 @@ export default function AppErrorPage({
           <p className="error-page__desc">
             Мы уже знаем о проблеме и работаем над её устранением
           </p>
-          <div className="mt-10 w-full max-w-sm min-[640px]:max-w-none">
-            <Button asChild variant="primary" size="lg" className="w-full min-[640px]:w-auto">
+          <div className="mt-10 flex w-full flex-col items-center gap-3 min-[640px]:flex-row min-[640px]:justify-center">
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={reset}
+              className="w-full min-[640px]:w-auto"
+            >
+              Попробовать снова
+            </Button>
+            <Button asChild variant="outline" size="lg" className="w-full min-[640px]:w-auto">
               <Link href="/">Вернуться на главную</Link>
             </Button>
           </div>

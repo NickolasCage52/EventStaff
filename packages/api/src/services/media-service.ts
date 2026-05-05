@@ -24,6 +24,15 @@ const SINGLE_SLOT: MediaType[] = [
   'COMPANY_BANNER',
 ];
 
+/** Types that skip moderation — owner and public see them immediately. */
+const AUTO_APPROVED_TYPES = new Set<MediaType>([
+  'AVATAR',
+  'PORTFOLIO_PHOTO',
+  'COMPANY_LOGO',
+  'COMPANY_BANNER',
+  'COMPANY_GALLERY',
+]);
+
 function allowedMimes(type: MediaType): Set<string> {
   switch (type) {
     case 'AVATAR':
@@ -121,7 +130,10 @@ export class MediaService {
     const storagePath = pathJoin(dir, fileBase);
     const url = await this.storage.upload(buffer, storagePath);
 
-    return this.prisma.media.create({
+    // Auto-approve photos/avatars — only documents and videos require moderation
+    const autoApprove = AUTO_APPROVED_TYPES.has(type);
+
+    const media = await this.prisma.media.create({
       data: {
         userId,
         type,
@@ -130,10 +142,17 @@ export class MediaService {
         filename: fileBase,
         mimeType,
         size: buffer.length,
-        isApproved: false,
+        isApproved: autoApprove,
         isRejected: false,
+        ...(autoApprove ? { moderatedAt: new Date() } : {}),
       },
     });
+
+    if (autoApprove) {
+      await this.applyApprovedProfileSync(media).catch(() => {});
+    }
+
+    return media;
   }
 
   private async enforceCountLimits(userId: string, role: string, type: MediaType): Promise<void> {
@@ -340,8 +359,10 @@ export class MediaService {
   }
 
   listPending() {
+    // Only DOCUMENT and VIDEO_CARD require manual moderation
+    const MODERATED_TYPES: MediaType[] = ['DOCUMENT', 'VIDEO_CARD'];
     return this.prisma.media.findMany({
-      where: { isApproved: false, isRejected: false },
+      where: { isApproved: false, isRejected: false, type: { in: MODERATED_TYPES } },
       orderBy: { createdAt: 'asc' },
       include: {
         user: {

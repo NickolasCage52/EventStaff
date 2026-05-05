@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { workerProfileUpdateSchema, type WorkerProfileUpdateInput, STAFF_CATEGORIES } from '@unity/shared';
+import { workerProfileUpdateSchema, type WorkerProfileUpdateInput } from '@unity/shared';
 import { FormField, FormTextarea, FormSelect, FormCheckbox } from '@/components/forms/FormField';
 import { useToast } from '@/components/ui/toast-context';
 import { apiClient } from '@/lib/api/client';
 import { Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import { CategoryMultiSelect, type WorkerCategoryItem } from '@/components/worker/CategoryMultiSelect';
 
 interface City {
   id: string;
@@ -30,13 +31,8 @@ interface WorkerProfile {
   rateType: string | null;
   visibility: string;
   cityId: string | null;
-  categories: { id: string; category: string; level: string }[];
+  categories: WorkerCategoryItem[];
 }
-
-const CATEGORY_OPTIONS = Object.entries(STAFF_CATEGORIES).map(([value, label]) => ({
-  value,
-  label,
-}));
 
 const RATE_TYPE_OPTIONS = [
   { value: 'hourly', label: 'В час' },
@@ -50,6 +46,7 @@ export default function WorkerProfilePage() {
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingVisibility, setTogglingVisibility] = useState(false);
+  const [categories, setCategories] = useState<WorkerCategoryItem[]>([]);
 
   const form = useForm<WorkerProfileUpdateInput>({
     resolver: zodResolver(workerProfileUpdateSchema),
@@ -63,6 +60,7 @@ export default function WorkerProfilePage() {
       .then(([profileRes, citiesRes]) => {
         const p = profileRes.data;
         setProfile(p);
+        setCategories(p.categories ?? []);
         setCities(citiesRes.data);
         form.reset({
           firstName: p.firstName,
@@ -192,12 +190,12 @@ export default function WorkerProfilePage() {
               error={form.formState.errors.cityId?.message}
               {...form.register('cityId')}
             />
-            <FormSelect
-              label="Специализация"
-              options={CATEGORY_OPTIONS}
-              placeholder="Выберите категорию"
-              {...form.register('categories' as keyof WorkerProfileUpdateInput)}
-            />
+            <div className="sm:col-span-2">
+              <CategoryMultiSelect
+                initial={categories}
+                onChange={setCategories}
+              />
+            </div>
             <FormField
               label="Желаемая ставка"
               type="number"

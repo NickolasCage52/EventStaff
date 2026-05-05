@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api/client';
 import { useToast } from '@/components/ui/toast-context';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
+import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 
 type Req = {
   id: string;
@@ -105,6 +106,17 @@ export default function AdminIndividualRequestsPage() {
               <tr>
                 <td colSpan={6} className="px-3 py-6 text-center text-white/50">
                   Загрузка…
+                </td>
+              </tr>
+            )}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-3 py-4">
+                  <AdminEmptyState
+                    icon={Inbox}
+                    title="Персональных заявок нет"
+                    description="Когда поступят заявки — они появятся здесь"
+                  />
                 </td>
               </tr>
             )}

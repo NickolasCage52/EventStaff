@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { apiClient } from '@/lib/api/client';
-import { Send, Star, Eye, EyeOff, Briefcase, Inbox } from 'lucide-react';
+import { Send, Star, Eye, EyeOff, Briefcase, Inbox, Mail } from 'lucide-react';
 import { APPLICATION_STATUSES } from '@unity/shared';
+import { ReliabilityWidget } from '@/components/worker/ReliabilityWidget';
 
 interface Application {
   id: string;
@@ -23,19 +24,28 @@ interface Stats {
   pending: number;
 }
 
+interface PendingInvitation {
+  id: string;
+  status: string;
+  createdAt: string;
+  vacancy: { title: string; employer: { companyName: string | null; contactName: string | null } };
+}
+
 export default function WorkerDashboardPage() {
   const { user } = useAuthStore();
   const [applications, setApplications] = useState<Application[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, confirmed: 0, pending: 0 });
   const [visibility, setVisibility] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
 
   useEffect(() => {
     Promise.all([
       apiClient.get<{ data: Application[] }>('/worker/applications', { limit: 5 }),
       apiClient.get<{ data: { visibility: string } }>('/worker/profile'),
+      apiClient.get<{ data: PendingInvitation[] }>('/worker/applications', { status: 'invited', page: 1 }),
     ])
-      .then(([appRes, profileRes]) => {
+      .then(([appRes, profileRes, invRes]) => {
         const apps = appRes.data;
         setApplications(apps.slice(0, 5));
         setVisibility(profileRes.data.visibility);
@@ -44,6 +54,7 @@ export default function WorkerDashboardPage() {
           confirmed: apps.filter((a) => a.status === 'confirmed').length,
           pending: apps.filter((a) => a.status === 'pending').length,
         });
+        setPendingInvitations((invRes.data ?? []).slice(0, 3));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -92,6 +103,11 @@ export default function WorkerDashboardPage() {
         ))}
       </div>
 
+      {/* Reliability Widget */}
+      <div className="mt-8">
+        <ReliabilityWidget />
+      </div>
+
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-input border border-white/10 bg-white/[0.04] p-6">
           <div className="mb-4 flex items-center justify-between">
@@ -121,6 +137,41 @@ export default function WorkerDashboardPage() {
             </Link>
           </div>
         </div>
+        {pendingInvitations.length > 0 && (
+          <div className="rounded-input border border-white/10 bg-white/[0.04] p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 font-semibold text-white">
+                <Mail className="h-4 w-4 text-primary-300" />
+                Приглашения
+                <span className="rounded-full bg-primary-500/30 px-2 py-0.5 text-xs font-bold text-primary-300">
+                  {pendingInvitations.length}
+                </span>
+              </h3>
+              <Link href="/worker/invitations" className="text-xs font-medium text-primary-300 hover:underline">
+                Все →
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {pendingInvitations.map((inv) => (
+                <div key={inv.id} className="flex items-center justify-between py-1.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-medium text-white/90">{inv.vacancy.title}</p>
+                    <p className="truncate text-xs text-white/45">
+                      {inv.vacancy.employer.companyName ?? inv.vacancy.employer.contactName}
+                    </p>
+                  </div>
+                  <Link
+                    href="/worker/invitations"
+                    className="ml-3 shrink-0 rounded-badge bg-primary-500/20 px-2.5 py-0.5 text-xs font-medium text-primary-300 hover:bg-primary-500/30"
+                  >
+                    Ответить
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="rounded-input border border-white/10 bg-white/[0.04] p-6">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-semibold text-white">Последние отклики</h3>

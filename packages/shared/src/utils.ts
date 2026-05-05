@@ -44,7 +44,15 @@ export function formatPhone(phone: string): string {
 }
 
 export function generateOtp(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // Cryptographically secure 6-digit OTP using Node.js crypto
+  // Works in both Node.js (SSR/API) and modern browser environments
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    return (100000 + (buf[0]! % 900000)).toString();
+  }
+  // Fallback: deterministic but not cryptographically secure (should not reach in practice)
+  return String(100000 + Math.floor(Math.random() * 900000));
 }
 
 /**

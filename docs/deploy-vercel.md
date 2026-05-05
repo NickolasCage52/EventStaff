@@ -78,12 +78,15 @@ git push -u origin main
 |------------|------------|----------------------|
 | `NEXT_PUBLIC_API_URL` | `https://ваш-api.домен/api/v1` | Тот же или отдельный staging API |
 | `NEXT_PUBLIC_SITE_URL` | `https://ваш-проект.vercel.app` | URL конкретного превью, если нужен стабильный CORS |
+| `JWT_SECRET` | **тот же**, что на API | Тот же, что в staging (иначе middleware не пустит в ЛК) |
+
+`JWT_SECRET` нужен **и на Vercel, и на API**: в `packages/web/src/middleware.ts` он проверяет cookie `access_token` (jose), подпись должна совпадать с бэкендом.
 
 Рекомендуется также задать `NEXT_PUBLIC_WS_URL` **только если** у вас отдельный WebSocket-хост; иначе клиент берёт origin из `NEXT_PUBLIC_API_URL` (см. `getApiOriginForSocket`).
 
 После изменения переменных сделайте **Redeploy**.
 
-**Не кладите** в Vercel секреты базы или JWT — они нужны на **сервере API**, а не в Next.js.
+**Не кладите** в `NEXT_PUBLIC_*` секреты. `DATABASE_URL`, `JWT_REFRESH_SECRET` и остальные серверные секреты — только в окружении **API (VPS и т.д.)**; `JWT_SECRET` — исключение: он **должен** быть на Vercel для middleware, но **не** выносить его в `NEXT_PUBLIC_*`.
 
 ---
 

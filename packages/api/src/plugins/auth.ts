@@ -48,6 +48,16 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
         }
         const { payload } = await jwtVerify(token, accessSecret);
         request.jwtUser = payload as TokenPayload;
+
+        // Real-time ban check: user was banned after this token was issued
+        const isBanned = fastify.redis
+          ? await fastify.redis.get(`banned:${request.jwtUser.sub}`)
+          : null;
+        if (isBanned) {
+          reply
+            .status(401)
+            .send({ error: { code: 'ACCOUNT_BANNED', message: 'Account is banned' } });
+        }
       } catch {
         reply
           .status(401)
@@ -98,4 +108,4 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
   });
 };
 
-export default fp(authPlugin, { name: 'auth' });
+export default fp(authPlugin, { name: 'auth', dependencies: ['redis'] });

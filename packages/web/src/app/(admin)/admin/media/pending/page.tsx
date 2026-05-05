@@ -5,6 +5,8 @@ import { apiClient, ApiError } from '@/lib/api/client';
 import { useToast } from '@/components/ui/toast-context';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { ImagePlus } from 'lucide-react';
+import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 
 interface PendingRow {
   id: string;
@@ -87,9 +89,13 @@ export default function AdminMediaPendingPage() {
 
       <div className="mt-6 space-y-6">
         {loading ? (
-          <p className="text-gray-500">Загрузка…</p>
+          <p className="text-white/50">Загрузка…</p>
         ) : rows.length === 0 ? (
-          <p className="text-gray-500">Нет файлов на модерации</p>
+          <AdminEmptyState
+            icon={ImagePlus}
+            title="Очередь пуста"
+            description="Все медиафайлы проверены"
+          />
         ) : (
           rows.map((r) => (
             <div

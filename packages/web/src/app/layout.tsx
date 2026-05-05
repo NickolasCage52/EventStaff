@@ -3,6 +3,7 @@ import { Inter, Playfair_Display } from 'next/font/google';
 import '@/styles/globals.css';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { ToastProvider } from '@/components/ui/toast-context';
+import { NetworkErrorBanner } from '@/components/common/NetworkErrorBanner';
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'http://localhost:3000';
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ru" className={`${inter.variable} ${playfair.variable}`}>
       <body className="min-h-screen bg-white font-sans text-gray-900 antialiased">
         <ToastProvider>
+          <NetworkErrorBanner />
           <AuthProvider>{children}</AuthProvider>
         </ToastProvider>
       </body>

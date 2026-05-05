@@ -1,10 +1,28 @@
 import type { FastifyPluginAsync } from 'fastify';
 import bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { z } from 'zod';
 import { registerSchema, loginSchema } from '@unity/shared';
+import { customAlphabet } from 'nanoid';
+import {
+  storeRefreshToken,
+  consumeRefreshToken,
+  invalidateAllUserTokens,
+  removeRefreshToken,
+} from '@/lib/refresh-tokens';
+import { ok, fail } from '@/lib/response';
+import { publicSiteUrl } from '@/lib/public-site-url';
+
+const nanoidToken = customAlphabet(
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+  64,
+);
 
 const BCRYPT_ROUNDS = 12;
 const REFRESH_TTL = 60 * 60 * 24 * 30; // 30 days in seconds
+const RESET_TOKEN_TTL = 3600; // 1 hour in seconds
+
+const nanoidSlug = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 6);
 
 function makeCookieOpts(maxAge: number) {
   const prod = process.env.NODE_ENV === 'production';
@@ -13,7 +31,7 @@ function makeCookieOpts(maxAge: number) {
     (process.env.AUTH_COOKIE_SAME_SITE === 'none' || process.env.AUTH_CROSS_SITE_COOKIES === 'true');
   return {
     httpOnly: true,
-    secure: prod,
+    secure: prod && (process.env.NEXT_PUBLIC_SITE_URL || '').startsWith('https://'),
     sameSite: (crossSite ? 'none' : 'lax') as 'lax' | 'none',
     path: '/',
     maxAge,
@@ -21,12 +39,13 @@ function makeCookieOpts(maxAge: number) {
 }
 
 function generateSlug(prefix: string, id: string): string {
-  return `${prefix}-${id.slice(-8)}-${Math.random().toString(36).slice(2, 6)}`;
+  return `${prefix}-${id.slice(-8)}-${nanoidSlug()}`;
 }
 
+
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
-  // POST /register
-  fastify.post('/register', async (request, reply) => {
+  // POST /register — max 5 per hour per IP
+  fastify.post('/register', { config: { rateLimit: { max: 5, timeWindow: '1 hour', keyGenerator: (req) => `register:${req.ip}` } } }, async (request, reply) => {
     const body = registerSchema.parse(request.body);
 
     const existing = await fastify.prisma.user.findFirst({
@@ -97,29 +116,42 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       roles,
       activeRole: body.role,
     });
-    const refreshToken = await fastify.signRefreshToken(user.id);
+    const refreshToken = nanoidToken();
 
-    await fastify.redis.set(`refresh:${user.id}`, refreshToken, 'EX', REFRESH_TTL);
+    await storeRefreshToken(fastify.redis, user.id, refreshToken);
 
     reply
       .setCookie('access_token', accessToken, makeCookieOpts(15 * 60))
       .setCookie('refresh_token', refreshToken, makeCookieOpts(REFRESH_TTL));
 
-    return reply.status(201).send({
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          phone: user.phone,
-          roles,
-          activeRole: body.role,
-        },
+    return ok(reply.status(201), {
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        roles,
+        activeRole: body.role,
       },
     });
   });
 
-  // POST /login
-  fastify.post('/login', async (request, reply) => {
+  // POST /login — max 5 attempts per 15 min per IP
+  fastify.post('/login', {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '15 minutes',
+        keyGenerator: (req) => `login:${req.ip}`,
+        errorResponseBuilder: (_req, context) => ({
+          error: {
+            code: 'TOO_MANY_ATTEMPTS',
+            message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
+            retryAfter: Math.floor(context.ttl / 1000),
+          },
+        }),
+      },
+    },
+  }, async (request, reply) => {
     const body = loginSchema.parse(request.body);
 
     const user = await fastify.prisma.user.findFirst({
@@ -163,23 +195,21 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       roles,
       activeRole,
     });
-    const refreshToken = await fastify.signRefreshToken(user.id);
+    const refreshToken = nanoidToken();
 
-    await fastify.redis.set(`refresh:${user.id}`, refreshToken, 'EX', REFRESH_TTL);
+    await storeRefreshToken(fastify.redis, user.id, refreshToken);
 
     reply
       .setCookie('access_token', accessToken, makeCookieOpts(15 * 60))
       .setCookie('refresh_token', refreshToken, makeCookieOpts(REFRESH_TTL));
 
-    return reply.send({
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          phone: user.phone,
-          roles,
-          activeRole,
-        },
+    return ok(reply, {
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        roles,
+        activeRole,
       },
     });
   });
@@ -189,12 +219,13 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const refreshToken = request.cookies?.refresh_token;
     if (refreshToken) {
       try {
-        const payload = await fastify.verifyRefreshToken(refreshToken);
-        if (payload.sub) {
-          await fastify.redis.del(`refresh:${payload.sub}`);
+        // Resolve userId from token (token-keyed storage)
+        const userId = await fastify.redis.get(`refresh:${refreshToken}`);
+        if (userId) {
+          await removeRefreshToken(fastify.redis, userId, refreshToken);
         }
       } catch {
-        // ignore invalid token on logout
+        // ignore errors on logout
       }
     }
 
@@ -202,36 +233,39 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       .clearCookie('access_token', { path: '/' })
       .clearCookie('refresh_token', { path: '/' });
 
-    return reply.send({ data: { success: true } });
+    return ok(reply, { success: true });
   });
 
-  // POST /refresh
+  // POST /refresh — full token rotation with theft detection
   fastify.post('/refresh', async (request, reply) => {
-    const refreshToken = request.cookies?.refresh_token;
-    if (!refreshToken) {
+    const oldToken = request.cookies?.refresh_token;
+    if (!oldToken) {
       return reply
         .status(401)
         .send({ error: { code: 'UNAUTHORIZED', message: 'No refresh token' } });
     }
 
-    let payload;
-    try {
-      payload = await fastify.verifyRefreshToken(refreshToken);
-    } catch {
-      return reply
-        .status(401)
-        .send({ error: { code: 'UNAUTHORIZED', message: 'Invalid refresh token' } });
-    }
+    // Atomically consume the old token — returns userId if valid, null if already consumed
+    const userId = await consumeRefreshToken(fastify.redis, oldToken);
 
-    const stored = await fastify.redis.get(`refresh:${payload.sub}`);
-    if (stored !== refreshToken) {
+    if (!userId) {
+      // Token was already consumed or never existed → possible theft
+      // Try to resolve userId from legacy key format for backward compat
+      const legacyUserId = await fastify.redis.get(`refresh:${oldToken}`).catch(() => null);
+      if (legacyUserId) {
+        // Legacy token found — invalidate all sessions for safety
+        await invalidateAllUserTokens(fastify.redis, legacyUserId).catch(() => {});
+      }
+      reply
+        .clearCookie('access_token', { path: '/' })
+        .clearCookie('refresh_token', { path: '/' });
       return reply
         .status(401)
-        .send({ error: { code: 'UNAUTHORIZED', message: 'Refresh token revoked' } });
+        .send({ error: { code: 'POSSIBLE_TOKEN_THEFT', message: 'Refresh token reuse detected' } });
     }
 
     const user = await fastify.prisma.user.findUnique({
-      where: { id: payload.sub! },
+      where: { id: userId },
       include: { roles: true },
     });
 
@@ -241,20 +275,39 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         .send({ error: { code: 'UNAUTHORIZED', message: 'User not found' } });
     }
 
+    // Ban check — invalidate session for banned/deleted accounts
+    if (user.status === 'banned' || user.status === 'deleted') {
+      await invalidateAllUserTokens(fastify.redis, userId).catch(() => {});
+      reply
+        .clearCookie('access_token', { path: '/' })
+        .clearCookie('refresh_token', { path: '/' });
+      return reply
+        .status(401)
+        .send({ error: { code: 'ACCOUNT_BANNED', message: 'Account is banned' } });
+    }
+
     const roles = user.roles.map((r) => r.role as string);
     const activeRole = (user.activeRole as string) ?? roles[0] ?? 'worker';
 
-    const newAccessToken = await fastify.signAccessToken({
-      sub: user.id,
-      email: user.email ?? undefined,
-      phone: user.phone ?? undefined,
-      roles,
-      activeRole,
-    });
+    // Issue new access token + new refresh token (rotation)
+    const [newAccessToken, newRefreshToken] = await Promise.all([
+      fastify.signAccessToken({
+        sub: user.id,
+        email: user.email ?? undefined,
+        phone: user.phone ?? undefined,
+        roles,
+        activeRole,
+      }),
+      Promise.resolve(nanoidToken()),
+    ]);
 
-    reply.setCookie('access_token', newAccessToken, makeCookieOpts(15 * 60));
+    await storeRefreshToken(fastify.redis, user.id, newRefreshToken);
 
-    return reply.send({ data: { success: true } });
+    reply
+      .setCookie('access_token', newAccessToken, makeCookieOpts(15 * 60))
+      .setCookie('refresh_token', newRefreshToken, makeCookieOpts(REFRESH_TTL));
+
+    return ok(reply, { success: true });
   });
 
   // GET /me
@@ -276,28 +329,105 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     const roles = user.roles.map((r) => r.role as string);
 
-    return reply.send({
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          phone: user.phone,
-          roles,
-          activeRole: (user.activeRole as string) ?? roles[0],
-          workerProfile: user.workerProfile,
-          employerProfile: user.employerProfile,
-        },
+    return ok(reply, {
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        roles,
+        activeRole: (user.activeRole as string) ?? roles[0],
+        workerProfile: user.workerProfile,
+        employerProfile: user.employerProfile,
       },
     });
   });
 
-  // POST /forgot-password (stub)
+  // POST /forgot-password
   fastify.post('/forgot-password', async (request, reply) => {
-    const body = z.object({ login: z.string().min(1) }).parse(request.body);
-    fastify.log.info({ login: body.login }, 'Password reset requested');
-    // TODO: подключить email-провайдер на следующем этапе
-    return reply.send({
-      data: { message: 'Если email существует, письмо отправлено' },
+    const body = z.object({ email: z.string().min(1) }).parse(request.body);
+
+    // Manual rate limit: max 3 attempts per IP per 15 minutes
+    const rateLimitKey = `reset_rl:${request.ip}`;
+    const currentAttempts = await fastify.redis.get(rateLimitKey);
+    if (currentAttempts && parseInt(currentAttempts, 10) >= 3) {
+      return reply
+        .status(429)
+        .send({ error: { code: 'RATE_LIMIT', message: 'Слишком много запросов. Повторите через 15 минут.' } });
+    }
+    const newCount = await fastify.redis.incr(rateLimitKey);
+    if (newCount === 1) {
+      await fastify.redis.expire(rateLimitKey, 900); // 15 minutes
+    }
+
+    // Always return 200 to not reveal whether email exists
+    const successMsg = { message: 'Если email зарегистрирован, письмо придёт в течение нескольких минут' };
+
+    const user = await fastify.prisma.user.findFirst({
+      where: { email: body.email },
+      include: {
+        workerProfile: { select: { firstName: true } },
+        employerProfile: { select: { contactName: true, companyName: true } },
+      },
     });
+
+    if (!user || !user.email) {
+      return ok(reply, successMsg);
+    }
+
+    if (user.status === 'banned' || user.status === 'deleted') {
+      return ok(reply, successMsg);
+    }
+
+    const resetToken = randomBytes(32).toString('hex');
+    await fastify.redis.setex(`reset:${resetToken}`, RESET_TOKEN_TTL, user.id);
+
+    const name =
+      user.workerProfile?.firstName ||
+      user.employerProfile?.contactName ||
+      user.employerProfile?.companyName ||
+      user.email;
+
+    const resetUrl = `${publicSiteUrl()}/auth/reset-password?token=${resetToken}`;
+
+    await fastify.emailService.queue({
+      userId: user.id,
+      to: user.email,
+      type: 'PASSWORD_RESET',
+      templateData: { name, resetUrl },
+    });
+
+    return ok(reply, successMsg);
+  });
+
+  // POST /reset-password
+  fastify.post('/reset-password', async (request, reply) => {
+    const body = z
+      .object({
+        token: z.string().min(1),
+        password: z.string().min(8, 'Минимум 8 символов').max(128),
+      })
+      .parse(request.body);
+
+    const userId = await fastify.redis.get(`reset:${body.token}`);
+    if (!userId) {
+      return reply.status(400).send({
+        error: { code: 'INVALID_OR_EXPIRED_TOKEN', message: 'Ссылка устарела или уже была использована' },
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(body.password, BCRYPT_ROUNDS);
+
+    await fastify.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    // Invalidate reset token so it can't be reused
+    await fastify.redis.del(`reset:${body.token}`);
+
+    // Invalidate all active sessions for this user (rotation-aware)
+    await invalidateAllUserTokens(fastify.redis, userId);
+
+    return ok(reply, { message: 'Пароль успешно изменён' });
   });
 };

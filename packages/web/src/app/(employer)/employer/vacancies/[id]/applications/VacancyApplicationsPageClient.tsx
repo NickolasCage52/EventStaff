@@ -6,7 +6,8 @@ import { useParams } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
 import { useToast } from '@/components/ui/toast-context';
 import { APPLICATION_STATUSES, STAFF_CATEGORIES } from '@unity/shared';
-import { ArrowLeft, MapPin, Check, X, User } from 'lucide-react';
+import { ArrowLeft, MapPin, Check, X, User, MessageSquare } from 'lucide-react';
+import { Breadcrumbs } from '@/components/common/Breadcrumbs';
 
 interface Application {
   id: string;
@@ -30,14 +31,35 @@ export function VacancyApplicationsPageClient() {
   const { toast } = useToast();
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [vacancyTitle, setVacancyTitle] = useState('Вакансия');
+  const [openingChatId, setOpeningChatId] = useState<string | null>(null);
 
   useEffect(() => {
     apiClient
       .get<{ data: Application[] }>(`/employer/vacancies/${id}/applications`)
-      .then((res) => setApplications(res.data))
+      .then((res) => {
+        setApplications(res.data);
+      })
       .catch(() => toast('Ошибка загрузки откликов', 'error'))
       .finally(() => setLoading(false));
+
+    apiClient
+      .get<{ data: { title: string } }>(`/employer/vacancies/${id}`)
+      .then((res) => setVacancyTitle(res.data.title))
+      .catch(() => {});
   }, [id, toast]);
+
+  const openChat = async (workerId: string) => {
+    setOpeningChatId(workerId);
+    try {
+      const res = await apiClient.post<{ data: { id: string } }>('/chat/rooms', { recipientId: workerId });
+      window.location.href = `/employer/messages?roomId=${res.data.id}`;
+    } catch {
+      toast('Не удалось открыть чат', 'error');
+    } finally {
+      setOpeningChatId(null);
+    }
+  };
 
   const updateStatus = async (appId: string, status: 'confirmed' | 'rejected') => {
     try {
@@ -53,13 +75,20 @@ export function VacancyApplicationsPageClient() {
 
   return (
     <div>
+      <Breadcrumbs
+        items={[
+          { label: 'Мои вакансии', href: '/employer/vacancies' },
+          { label: vacancyTitle, href: `/employer/vacancies/${id}` },
+          { label: 'Отклики' },
+        ]}
+      />
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/employer/vacancies" className="rounded-full p-1.5 hover:bg-gray-100">
+        <Link href="/employer/vacancies" className="rounded-full p-1.5 hover:bg-white/10">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Отклики на вакансию</h1>
-          <p className="mt-0.5 text-sm text-gray-500">{applications.length} откликов</p>
+          <h1 className="text-2xl font-bold text-white">Отклики на вакансию</h1>
+          <p className="mt-0.5 text-sm text-white/50">{applications.length} откликов</p>
         </div>
       </div>
 
@@ -126,20 +155,32 @@ export function VacancyApplicationsPageClient() {
                     <p className="mt-2 text-sm text-gray-600">{app.coverMessage}</p>
                   )}
                   {app.status === 'pending' && (
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                       <button
                         onClick={() => updateStatus(app.id, 'confirmed')}
-                        className="flex items-center gap-1 rounded-input bg-green-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600"
+                        className="flex items-center justify-center gap-1 rounded-input bg-green-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600"
                       >
                         <Check className="h-3 w-3" />
                         Принять
                       </button>
                       <button
                         onClick={() => updateStatus(app.id, 'rejected')}
-                        className="flex items-center gap-1 rounded-input border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                        className="flex items-center justify-center gap-1 rounded-input border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
                       >
                         <X className="h-3 w-3" />
                         Отклонить
+                      </button>
+                    </div>
+                  )}
+                  {app.status === 'confirmed' && (
+                    <div className="mt-3">
+                      <button
+                        onClick={() => openChat(app.worker.id)}
+                        disabled={openingChatId === app.worker.id}
+                        className="flex items-center gap-1.5 rounded-input border border-primary-400/40 bg-primary-500/10 px-3 py-1.5 text-xs font-medium text-primary-300 hover:bg-primary-500/20 disabled:opacity-60"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        {openingChatId === app.worker.id ? 'Открываем...' : 'Открыть чат'}
                       </button>
                     </div>
                   )}

@@ -1,18 +1,24 @@
 # Dependencies
 node_modules/
+.pnp
+.pnp.js
 .pnpm-store/
 
 # Build
 .next/
 out/
 dist/
-out/
 .turbo/
 
-# Environment
+# Environment — never commit secrets
 .env
 .env.local
+.env.production
+.env.development
 .env.*.local
+
+# Vercel
+.vercel
 
 # IDE
 .idea/
@@ -24,15 +30,20 @@ out/
 .DS_Store
 Thumbs.db
 
-# Debug
+# Logs
+*.log
 npm-debug.log*
+yarn-debug.log*
 pnpm-debug.log*
+yarn-error.log*
 
 # Prisma
 packages/api/prisma/*.db
+# prisma/migrations — keep in git; do not commit dev SQLite if added later
 
 # Local media (see UPLOADS_ROOT)
 uploads/
+public/uploads/
 packages/api/uploads/
 
 # Redis
@@ -48,3 +59,7 @@ coverage/
 # Generated
 *.tsbuildinfo
 next-env.d.ts
+
+# Local backup copies (do not commit)
+*.bak
+*.bak.*

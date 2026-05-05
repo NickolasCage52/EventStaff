@@ -7,31 +7,36 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { FormField } from '@/components/forms/FormField';
 import { CheckCircle } from 'lucide-react';
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+import { getPublicApiBase } from '@/lib/api/publicApiBase';
 
 const schema = z.object({
-  login: z.string().min(1, 'Введите email или телефон'),
+  email: z.string().min(1, 'Введите email'),
 });
 
 type FormData = z.infer<typeof schema>;
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { login: '' },
+    defaultValues: { email: '' },
   });
 
   const onSubmit = async (data: FormData) => {
-    // TODO: подключить email-провайдер на следующем этапе
-    await fetch(`${API}/auth/forgot-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    }).catch(() => {});
-    setSent(true);
+    setServerError(null);
+    try {
+      await fetch(`${getPublicApiBase()}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email }),
+      });
+      // Always show success to avoid email enumeration
+      setSent(true);
+    } catch {
+      setServerError('Ошибка соединения. Попробуйте позже.');
+    }
   };
 
   return (
@@ -48,7 +53,8 @@ export default function ForgotPasswordPage() {
         <div className="mt-8 flex flex-col items-center gap-3 text-center">
           <CheckCircle className="h-12 w-12 text-success" />
           <p className="text-sm text-gray-700">
-            Если этот email зарегистрирован в системе, на него придёт письмо с инструкцией.
+            Если этот email зарегистрирован в системе, письмо с инструкцией придёт
+            в течение нескольких минут.
           </p>
           <Link
             href="/auth/login"
@@ -60,12 +66,17 @@ export default function ForgotPasswordPage() {
       ) : (
         <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-4">
           <FormField
-            label="Email или телефон"
-            type="text"
+            label="Email"
+            type="email"
             placeholder="your@email.com"
-            error={form.formState.errors.login?.message}
-            {...form.register('login')}
+            error={form.formState.errors.email?.message}
+            {...form.register('email')}
           />
+
+          {serverError && (
+            <p className="text-sm text-red-600">{serverError}</p>
+          )}
+
           <button
             type="submit"
             disabled={form.formState.isSubmitting}

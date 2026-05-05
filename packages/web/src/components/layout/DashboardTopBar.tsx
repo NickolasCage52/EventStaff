@@ -1,14 +1,20 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, Menu, User } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
 type TopBarVariant = 'default' | 'cabinet';
 
-export function DashboardTopBar({ variant = 'default' }: { variant?: TopBarVariant }) {
+export function DashboardTopBar({
+  variant = 'default',
+  onMenuToggle,
+}: {
+  variant?: TopBarVariant;
+  onMenuToggle?: () => void;
+}) {
   const isCabinet = variant === 'cabinet';
   const router = useRouter();
   const { user, logout } = useAuthStore();
@@ -36,7 +42,20 @@ export function DashboardTopBar({ variant = 'default' }: { variant?: TopBarVaria
           : 'flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6'
       }
     >
-      <div className="lg:hidden">
+      <div className="flex items-center gap-3 lg:hidden">
+        {onMenuToggle && (
+          <button
+            onClick={onMenuToggle}
+            aria-label="Открыть меню"
+            className={`rounded-full p-1.5 ${
+              isCabinet
+                ? 'text-white/60 hover:bg-white/10 hover:text-white'
+                : 'text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
         <span
           className={`font-heading text-lg font-bold ${
             isCabinet ? 'text-white' : 'text-gray-900'
