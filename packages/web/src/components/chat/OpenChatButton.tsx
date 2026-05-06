@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MessageCircle } from 'lucide-react';
 import { apiClient, ApiError } from '@/lib/api/client';
+import { useAuthStore } from '@/stores/authStore';
 
 type Props = { recipientUserId: string; className?: string; label?: string };
 
@@ -14,6 +15,9 @@ export function OpenChatButton({ recipientUserId, className, label = 'Напис
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const router = useRouter();
+  const { user } = useAuthStore();
+  const messagesBase =
+    user?.activeRole === 'employer' ? '/employer/messages' : '/worker/messages';
 
   return (
     <div>
@@ -29,7 +33,7 @@ export function OpenChatButton({ recipientUserId, className, label = 'Напис
               '/chat/rooms',
               { recipientId: recipientUserId },
             );
-            router.push(`/dashboard/chat/${r.data.room.id}`);
+            router.push(`${messagesBase}/${r.data.room.id}`);
           } catch (e) {
             if (e instanceof ApiError && e.code === 'CHAT_NOT_ALLOWED') {
               setErr('Чат с этим пользователем пока недоступен');

@@ -32,8 +32,8 @@ type RoomMeta = {
 };
 
 export function ChatRoomView() {
-  const params = useParams();
-  const roomId = String(params?.roomId ?? '');
+  const params = useParams<{ roomId?: string; id?: string }>();
+  const roomId = String(params?.roomId ?? params?.id ?? '');
   const router = useRouter();
   const { user } = useAuthStore();
   const socket = useChatSocket();
@@ -47,6 +47,9 @@ export function ChatRoomView() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const userId = user?.id;
+
+  const messagesListPath =
+    user?.activeRole === 'employer' ? '/employer/messages' : '/worker/messages';
 
   const scrollBottom = useCallback(() => {
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }));
@@ -175,7 +178,7 @@ export function ChatRoomView() {
   if (err) {
     return (
       <div>
-        <button type="button" onClick={() => router.push('/dashboard/chat')} className="mb-4 text-sm text-primary-600">
+        <button type="button" onClick={() => router.push(messagesListPath)} className="mb-4 text-sm text-primary-600">
           ← К списку
         </button>
         <p className="text-red-600">{err}</p>
@@ -192,7 +195,7 @@ export function ChatRoomView() {
       <header className="mb-2 flex items-center gap-3 border-b border-gray-200 pb-3">
         <button
           type="button"
-          onClick={() => router.push('/dashboard/chat')}
+          onClick={() => router.push(messagesListPath)}
           className="rounded-input p-1.5 text-gray-600 hover:bg-gray-100"
           aria-label="Назад"
         >
