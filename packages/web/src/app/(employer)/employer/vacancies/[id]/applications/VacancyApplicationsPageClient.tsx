@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
 import { useToast } from '@/components/ui/toast-context';
 import { APPLICATION_STATUSES, STAFF_CATEGORIES } from '@unity/shared';
@@ -16,6 +16,7 @@ interface Application {
   coverMessage: string | null;
   worker: {
     id: string;
+    userId: string;
     firstName: string;
     lastName: string;
     photoUrl: string | null;
@@ -28,6 +29,7 @@ interface Application {
 
 export function VacancyApplicationsPageClient() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { toast } = useToast();
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,11 +51,14 @@ export function VacancyApplicationsPageClient() {
       .catch(() => {});
   }, [id, toast]);
 
-  const openChat = async (workerId: string) => {
-    setOpeningChatId(workerId);
+  /** recipientId для POST /chat/rooms — это user id, не id профиля работника */
+  const openChat = async (recipientUserId: string) => {
+    setOpeningChatId(recipientUserId);
     try {
-      const res = await apiClient.post<{ data: { id: string } }>('/chat/rooms', { recipientId: workerId });
-      window.location.href = `/employer/messages?roomId=${res.data.id}`;
+      const res = await apiClient.post<{
+        data: { room: { id: string }; created: boolean };
+      }>('/chat/rooms', { recipientId: recipientUserId });
+      router.push(`/employer/messages/${res.data.room.id}`);
     } catch {
       toast('Не удалось открыть чат', 'error');
     } finally {
@@ -172,15 +177,16 @@ export function VacancyApplicationsPageClient() {
                       </button>
                     </div>
                   )}
-                  {app.status === 'confirmed' && (
+                  {['invited', 'interview', 'confirmed', 'shift_started', 'completed'].includes(app.status) && (
                     <div className="mt-3">
                       <button
-                        onClick={() => openChat(app.worker.id)}
-                        disabled={openingChatId === app.worker.id}
+                        type="button"
+                        onClick={() => openChat(app.worker.userId)}
+                        disabled={openingChatId === app.worker.userId}
                         className="flex items-center gap-1.5 rounded-input border border-primary-400/40 bg-primary-500/10 px-3 py-1.5 text-xs font-medium text-primary-300 hover:bg-primary-500/20 disabled:opacity-60"
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
-                        {openingChatId === app.worker.id ? 'Открываем...' : 'Открыть чат'}
+                        {openingChatId === app.worker.userId ? 'Открываем...' : 'Открыть чат'}
                       </button>
                     </div>
                   )}
