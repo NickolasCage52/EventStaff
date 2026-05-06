@@ -30,6 +30,10 @@ cd unity
 # 2. Скопировать переменные окружения
 cp .env.example .env
 
+# Frontend: создать packages/web/.env.local из packages/web/env.docker.local.example —
+# там же JWT_SECRET (должен совпадать с корнем) и NEXT_PUBLIC_*.
+# Рабочий чат: модель ChatRoom + Socket.io и REST `/api/v1/chat/*` (не путать с legacy `/messages/*`).
+
 # 3. Запустить PostgreSQL и Redis (и API — см. docker-compose.yml)
 pnpm docker:up
 # или: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
@@ -41,8 +45,10 @@ pnpm install
 pnpm db:generate
 pnpm db:migrate
 
-# 6. Запустить dev-серверы
+# 6. Запустить dev (только фронт: `pnpm dev`; фронт + API: `pnpm dev:all` при БД локально на :4000)
 pnpm dev
+# или полный стек на хосте:
+# pnpm dev:all
 ```
 
 После запуска:
@@ -70,7 +76,8 @@ unity/
 
 | Команда | Описание |
 |---------|----------|
-| `pnpm dev` | Запустить все пакеты в dev-режиме |
+| `pnpm dev` | Next.js фронтенд только (`packages/web`) |
+| `pnpm dev:all` | Фронт + API (Turbo), если API не в Docker |
 | `pnpm build` | Собрать все пакеты |
 | `pnpm lint` | Линтинг |
 | `pnpm typecheck` | Проверка типов |
@@ -82,6 +89,8 @@ unity/
 ## Переменные окружения
 
 Полный список переменных с описанием — в файле `.env.example`.
+
+Дополнительно для локального UI: файл **`packages/web/.env.local`** (шаблон: `packages/web/env.docker.local.example`). Без него браузер не получит `NEXT_PUBLIC_*`, а **`JWT_SECRET` в `.env.local` должен совпадать с API** — иначе Next.js middleware не расшифрует те же cookie, что выставляет backend.
 
 ## Архитектура
 
